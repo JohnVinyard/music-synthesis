@@ -2,14 +2,13 @@ import zounds
 from featuresynth.data import TrainingData
 from featuresynth.feature import \
     sr, total_samples, frequency_recomposition, feature_channels, band_sizes, \
-    filter_banks, bandpass_filters, scale, slices, frequency_decomposition, \
-    compute_stds
+    filter_banks, bandpass_filters, slices
 import numpy as np
 from featuresynth.util import device
 import torch
 from itertools import cycle
 from torch.optim import Adam
-from featuresynth.generator import Generator, SimpleGenerator
+from featuresynth.generator import Generator
 from featuresynth.discriminator import Discriminator
 import argparse
 from torch import nn
@@ -76,10 +75,6 @@ if __name__ == '__main__':
 
 
     def g_sample():
-        # r.batch_workers[0].band_stds
-        # scaled_bands = []
-        # for band in bands:
-        #     scaled_bands.append(band * r.batch_workers[0].band_stds[band.shape[-1]])
         recmposed = frequency_recomposition(bands, total_samples)
         index = np.random.randint(0, len(recmposed))
         fake_sample = zounds.AudioSamples(recmposed[index], sr)
@@ -136,14 +131,6 @@ if __name__ == '__main__':
         x = filter_banks[index].convolve(band)
         return np.abs(x.data.cpu().numpy())[0].T
 
-    # bands, spectral = view_channel_spectral(r)
-    # input('Waiting...')
-    # exit()
-
-
-    # spectral = test_filter_bank_recon(r, return_spectral=True)
-    # input('Waiting...')
-    # exit()
 
     feature_size = 64
     learning_rate = 0.0001

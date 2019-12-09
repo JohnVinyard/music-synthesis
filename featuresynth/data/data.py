@@ -7,10 +7,8 @@ from ..util import device
 import numpy as np
 import torch
 from ..feature import \
-    band_sizes, frequency_decomposition, compute_features, band_stds, \
-    feature_stds, slices
-from io import BytesIO
-from requests import Session
+    band_sizes, frequency_decomposition, compute_features
+
 
 class AudioReservoir(Thread):
     def __init__(self, path, reservoir, total_samples, sr, limit_samples=None):
@@ -26,16 +24,6 @@ class AudioReservoir(Thread):
         filename = choice(self.files)
         fullpath = os.path.join(self.path, filename)
         samples = zounds.AudioSamples.from_file(fullpath).mono
-
-        # get something from outside the dataset
-        # s = Session()
-        # items = list(zounds.InternetArchive('Greatest_Speeches_of_the_20th_Century'))
-        # item = choice(items)
-        # req = item.uri.prepare()
-        # raw = s.send(req).content
-        # samples = zounds.AudioSamples.from_file(BytesIO(raw)).mono
-        # end get something from outside the dataset
-
         samples = zounds.soundfile.resample(samples, self.sr)
         _, windowed = samples.sliding_window_with_leftovers(
             self.total_samples, 1024, dopad=True)
@@ -129,7 +117,6 @@ class TrainingData(object):
             for _ in range(n_batch_workers)]
         for worker in self.batch_workers:
             worker.start()
-
 
     def batch_stream(self):
         while True:

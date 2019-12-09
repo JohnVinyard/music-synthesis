@@ -10,10 +10,7 @@ from scipy.signal import firwin
 total_samples = 16384
 band_sizes = [1024, 2048, 4096, 8192, total_samples]
 
-
 feature_channels = 256
-# feature_channels = 12 + 12 + 8
-# input(f'feature channels is {feature_channels}. Are you sure?')
 
 sr = zounds.SR11025()
 band = zounds.FrequencyBand(20, sr.nyquist)
@@ -33,67 +30,9 @@ fb = zounds.learn.FilterBank(
 fb.filter_bank = fb.filter_bank / 10
 
 
-
-def compute_stds(r):
-    from collections import defaultdict
-    sample_bands = defaultdict(list)
-    feature_bands = defaultdict(list)
-
-    stream = r.batch_stream()
-    for i in range(1000):
-        print(f'stats batch {i}')
-        samples, features = next(stream)
-
-        for band in samples:
-            sample_bands[band.shape[-1]].append(band)
-            print(band.shape)
-
-        for sl in slices:
-            feature_bands[(sl.start, sl.stop)].append(features[:, sl, :])
-            print(features[:, sl, :].shape)
-
-    sample_bands = \
-        {k: np.concatenate(v, axis=0) for k, v in sample_bands.items()}
-    feature_bands = \
-        {k: np.concatenate(v, axis=0) for k, v in feature_bands.items()}
-
-    for k in sample_bands:
-        print(sample_bands[k].shape)
-        sample_bands[k] = sample_bands[k].std()
-
-    for k in feature_bands:
-        print(feature_bands[k].shape)
-        feature_bands[k] = feature_bands[k].std()
-
-    print(sample_bands)
-    print(feature_bands)
-    return sample_bands, feature_bands
-
-
-
-
-band_stds = {
-    1024: 0.7601185,
-    2048: 0.18898165,
-    4096: 0.12515537,
-    8192: 0.07402229,
-    16384: 0.02351869
-}
-
-feature_stds = {
-    (0, 132): 0.9218951,
-    (127, 164): 0.36772057,
-    (159, 195): 0.12146693,
-    (190, 226): 0.029572045,
-    (222, 256): 0.012235979
-}
-
-
 def generate_filter_banks(band_sizes):
     band_sizes = sorted(band_sizes)
     total_samples = band_sizes[-1]
-    # n_bands = 128
-    # n_bands = [16, 32, 64, 128, 256]
     n_bands = [128] * 5
 
     n_taps = 256
@@ -105,7 +44,8 @@ def generate_filter_banks(band_sizes):
             sr.frequency * ratio, sr.duration * ratio)
 
         if size == total_samples:
-            freq_band = zounds.FrequencyBand(current_low_freq, new_sr.nyquist - 20)
+            freq_band = zounds.FrequencyBand(current_low_freq,
+                                             new_sr.nyquist - 20)
         else:
             freq_band = zounds.FrequencyBand(current_low_freq, new_sr.nyquist)
 
@@ -127,9 +67,6 @@ def generate_filter_banks(band_sizes):
             0.25,
             normalize_filters=False,
             a_weighting=False).to(device)
-        # KLUDGE: What's a principled way to scale this?
-        # bank.filter_bank = bank.filter_bank / 10
-
 
         current_low_freq = freq_band.stop_hz
         yield bank, bandpass
@@ -144,9 +81,6 @@ for filter_bank in filter_banks:
         filter_bank.scale.start_hz, filter_bank.scale.stop_hz)
     subset = scale.get_slice(band)
     slices.append(subset)
-
-# slices = [slice(0, feature_channels)] * len(band_sizes)
-# input('Slices are all full size.  Are you sure?')
 print(slices)
 
 
@@ -156,7 +90,6 @@ def transform(samples):
         result = fb.convolve(s)
         result = F.relu(result)
         result = result.data.cpu().numpy()[..., :samples.shape[-1]]
-    # result = zounds.log_modulus(result * 10)
     return result
 
 
@@ -195,25 +128,9 @@ def low_dim(result, downsample_factor=8):
     return s
 
 
-
-
 def compute_features(samples):
     spectral = transform(samples)
-    p = pooled(spectral)
-
-    # m = mfcc(p)
-    # # print(m.shape)
-    # ld = low_dim(p, downsample_factor=8)
-    # # print(ld.shape)
-    # c = chroma(p)
-    # # print(c.shape)
-    # feature = np.concatenate([ld, m, c], axis=1).astype(np.float32)
-
-    ld = p
-    feature = np.concatenate([ld], axis=1).astype(np.float32)
-
-    return feature
-
+    return pooled(spectral).astype(np.float32)
 
 
 def frequency_decomposition(samples, sizes):
@@ -232,17 +149,12 @@ def frequency_decomposition(samples, sizes):
         resampled = idct(new_coeffs, axis=-1, norm='ortho')
         bands.append(resampled)
 
-    # bands = [b / band_stds[b.shape[-1]] for b in bands]
-    # print('REAL', [band.max() for band in bands])
     return bands
 
 
 def frequency_recomposition(bands, total_size):
-    # print('GENERATED', [band.max() for band in bands])
     batch_size = bands[0].shape[0]
     bands = sorted(bands, key=lambda band: len(band))
-    # bands = [b * band_stds[b.shape[-1]] for b in bands]
-
     final = np.zeros((batch_size, total_size))
     for i, band in enumerate(bands):
         coeffs = dct(band, axis=-1, norm='ortho')
