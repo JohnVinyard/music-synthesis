@@ -8,8 +8,8 @@ from torch.optim import Adam
 
 from featuresynth.data import DataStore
 from featuresynth.feature import total_samples, frequency_recomposition, band_sizes, filter_banks, slices, bandpass_filters, sr
-from featuresynth.featurediscriminator import AlternateDiscriminator as Discriminator
-from featuresynth.featuregenerator import AlternateGenerator as Generator
+from featuresynth.featurediscriminator import Discriminator
+from featuresynth.featuregenerator import Generator
 from featuresynth.util import device
 from featuresynth.generator import Generator as AudioGenerator
 
@@ -42,16 +42,16 @@ if __name__ == '__main__':
     def preview(fake_batch):
         fake_batch = torch.from_numpy(fake_batch)
         inp = fake_batch[0]  # (256, 512)
-        inp = inp.permute(1, 0)  # (512, 256)
-        window = inp.shape[0] // audio_generator_input_size
-        inp = inp.unfold(0, window, window)  # (64, 256, 8)
-        inp = inp.permute(2, 1, 0)  # (8, 256, 64)
+
+        window = audio_generator_input_size
+        inp = inp.unfold(1, window, window)  # (256, 8, 64)
+
+        inp = inp.permute(1, 0, 2)  # (8, 256, 64)
         bands = audio_generator(inp)
         samples = frequency_recomposition(
-            [b.data.cpu().numpy().squeeze() for b in bands.values()],
-            total_samples)
-        samples = np.concatenate(samples, axis=-1)
-        return zounds.AudioSamples(samples, sr)
+            [np.concatenate(b.data.cpu().numpy().squeeze(), axis=-1)[None, ...] for b in bands.values()],
+            total_feature_samples)
+        return zounds.AudioSamples(samples.squeeze(), sr)
 
 
     g = Generator(
@@ -61,6 +61,7 @@ if __name__ == '__main__':
         initial_dim=4,
         channels=128).initialize_weights().to(device)
     g_optim = Adam(g.parameters(), lr=0.0001, betas=(0, 0.9))
+    # g.load_state_dict(torch.load('feature_generator.dat'))
 
     d = Discriminator(
         frames=n_frames,
@@ -68,6 +69,7 @@ if __name__ == '__main__':
         channels=128,
         n_judgements=4).initialize_weights().to(device)
     d_optim = Adam(d.parameters(), lr=0.0001, betas=(0, 0.9))
+    # d.load_state_dict(torch.load('feature_disc.dat'))
 
 
     def zero_grad():
