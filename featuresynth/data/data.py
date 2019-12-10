@@ -10,6 +10,10 @@ from ..feature import \
     band_sizes, frequency_decomposition, compute_features
 
 
+def preprocess_audio(samples, target_samplerate):
+    return zounds.soundfile.resample(samples.mono, target_samplerate)
+
+
 class AudioReservoir(Thread):
     def __init__(self, path, reservoir, total_samples, sr, limit_samples=None):
         super().__init__(daemon=True)
@@ -23,8 +27,12 @@ class AudioReservoir(Thread):
     def _audio_segment(self):
         filename = choice(self.files)
         fullpath = os.path.join(self.path, filename)
-        samples = zounds.AudioSamples.from_file(fullpath).mono
-        samples = zounds.soundfile.resample(samples, self.sr)
+
+        # samples = zounds.AudioSamples.from_file(fullpath).mono
+        # samples = zounds.soundfile.resample(samples, self.sr)
+
+        samples = zounds.AudioSamples.from_file(fullpath)
+        samples = preprocess_audio(samples, self.sr)
         _, windowed = samples.sliding_window_with_leftovers(
             self.total_samples, 1024, dopad=True)
         dims = windowed.dimensions
@@ -95,15 +103,18 @@ class TrainingData(object):
             sr,
             n_audio_workers=4,
             n_batch_workers=4,
-            limit_samples=None):
+            limit_samples=None,
+            reservoir_size=int(1e5)):
 
         super().__init__()
+        self.reservoir_size = reservoir_size
         self.n_batch_workers = n_batch_workers
         self.n_audio_workers = n_audio_workers
         self.path = path
         self.batch_size = batch_size
         self.batch_queue = []
-        self.reservoir = zounds.learn.Reservoir(int(1e5), dtype=np.float32)
+        self.reservoir = zounds.learn.Reservoir(
+            self.reservoir_size, dtype=np.float32)
 
         self.audio_workers = \
             [AudioReservoir(path, self.reservoir, total_samples, sr,

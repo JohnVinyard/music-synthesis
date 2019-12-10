@@ -84,9 +84,9 @@ for filter_bank in filter_banks:
 print(slices)
 
 
-def transform(samples):
+def transform(samples, dev=device):
     with torch.no_grad():
-        s = torch.from_numpy(samples.astype(np.float32)).to(device)
+        s = torch.from_numpy(samples.astype(np.float32)).to(dev)
         result = fb.convolve(s)
         result = F.relu(result)
         result = result.data.cpu().numpy()[..., :samples.shape[-1]]
@@ -128,9 +128,49 @@ def low_dim(result, downsample_factor=8):
     return s
 
 
-def compute_features(samples):
-    spectral = transform(samples)
+def compute_features(samples, dev=device):
+    spectral = transform(samples, dev)
     return pooled(spectral).astype(np.float32)
+
+
+# def compute_features_batched(samples, n_samples, batch_size, feature_func):
+#     orig_batch_size = samples.shape[0]
+#     batched = zounds.sliding_window(
+#         samples, samples.shape[:2] + (n_samples,))
+#     new_batch_size = batched.shape[0]
+#     batched = batched.reshape(-1, 1, n_samples)
+#
+#     results = []
+#     for i in range(0, len(batched), batch_size):
+#         results.append(feature_func(batched[i: i + batch_size]))
+#
+#     results = np.concatenate(results, axis=0)
+#     channels = results.shape[1]
+#
+#     results = results.reshape((new_batch_size, orig_batch_size, 1, n_samples))
+#     results = results.transpose((1, 2, 0, 3))
+#     results = results.reshape((orig_batch_size, channels, -1))
+#     return results
+
+
+def compute_features_batched(
+        samples,
+        samples_per_example,
+        batch_size,
+        feature_func,
+        normalize_samples=True):
+
+    x = zounds.sliding_window(samples, samples_per_example)
+    results = []
+    for i in range(0, len(x), batch_size):
+        results.append(feature_func(x[i: i + batch_size]))
+    results = np.concatenate(results, axis=0)
+    # now we have (batches, channels, time)
+    channels = results.shape[1]
+    results = results.transpose((0, 2, 1))
+    # now we have (batches, time, channels)
+    results = results.reshape(-1, channels)
+    return results
 
 
 def frequency_decomposition(samples, sizes):
