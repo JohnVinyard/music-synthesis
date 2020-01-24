@@ -4,16 +4,19 @@ import torch
 import math
 
 
-def flatten_channels(x):
+def flatten_channels(x, channels_as_time=False):
     batch, channels, frames = x.shape
     x = x.permute(0, 2, 1).contiguous()
-    # TODO: I'm not sure this is correct!
-    x = x.view(batch * frames, channels, 1)
+    if channels_as_time:
+        x = x.view(batch * frames, 1, channels)
+    else:
+        x = x.view(batch * frames, channels, 1)
+    return x
 
 
 def unflatten_channels(x, batch_size):
     # we start with (batch * frames, 1, channels)
-    channels = x.shape[-1]
+    channels = x.squeeze().shape[-1]
     x = x.view(batch_size, -1, channels)
     x = x.permute(0, 2, 1).contiguous()
     # now we have (batch, channels, frames)
@@ -78,10 +81,11 @@ class DilatedStack(nn.Module):
     def forward(self, x):
         x = x.view(x.shape[0], self.in_channels, -1)
         for layer in self.main:
-            if self.residual:
-                x = self.activation(layer(x) + x)
+            z = layer(x)
+            if self.residual and z.shape[1] == x.shape[1]:
+                x = self.activation(z + x)
             else:
-                x = self.activation(layer(x))
+                x = self.activation(z)
         return x
 
 

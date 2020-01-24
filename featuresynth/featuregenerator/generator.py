@@ -5,7 +5,8 @@ from torch.nn.init import xavier_normal_, calculate_gain, orthogonal_
 import numpy as np
 import math
 from ..util.modules import \
-    ToTimeSeries, UpSample, LearnedUpSample, UpsamplingStack, normalize
+    ToTimeSeries, UpSample, LearnedUpSample, UpsamplingStack, normalize, \
+    flatten_channels, unflatten_channels, DilatedStack
 
 
 # class CausalConv(nn.Module):
@@ -235,6 +236,117 @@ class FrameGenerator(nn.Module):
         x = self.stack(x)
         return x, x
 
+
+class TimeSeriesGenerator(nn.Module):
+    """
+    Transform a noise vector into a time-series of latent frames
+    """
+
+    def __init__(
+            self,
+            frames,
+            latent_out_channels,
+            noise_dim,
+            initial_dim,
+            channels):
+        super().__init__()
+        self.channels = channels
+        self.initial_dim = initial_dim
+        self.noise_dim = noise_dim
+        self.latent_out_channels = latent_out_channels
+        self.frames = frames
+
+        self.to_time_series = ToTimeSeries(noise_dim, channels, initial_dim)
+        self.initial = DilatedStack(
+            channels, channels, 3, [1, 3], lambda x: F.leaky_relu(x, 0.2),
+            residual=False)
+        self.final = DilatedStack(
+            channels,
+            channels,
+            3,
+            [27, 9, 3, 1, 1, 1],
+            activation=lambda x: F.leaky_relu(x, 0.2), residual=False)
+        self.to_latent = nn.Conv1d(
+            channels, self.latent_out_channels, 1, 1, 0, bias=False)
+
+    def forward(self, x):
+        x = self.to_time_series(x)
+        x = self.initial(x)
+        x = F.upsample(x, size=self.frames)
+        x = self.final(x)
+        x = self.to_latent(x)
+        return x
+
+
+class SpectrumGenerator(nn.Module):
+    def __init__(self, latent_dim, channels, initial_dim, out_channels):
+        super().__init__()
+        self.out_channels = out_channels
+        self.initial_dim = initial_dim
+        self.channels = channels
+        self.latent_dim = latent_dim
+
+        self.to_spec_series = ToTimeSeries(
+            self.latent_dim, channels, initial_dim)
+        self.spec_stack = UpsamplingStack(
+            initial_dim,
+            out_channels,
+            scale_factor=2,
+            layer_func=self._build_spec_layer)
+
+    def _build_spec_layer(self, i, curr_size, out_size, first, last):
+        return UpSample(
+            in_channels=self.channels,
+            out_channels=1 if last else self.channels,
+            kernel_size=7,
+            scale_factor=2,
+            activation=self._to_frames if last else self._relu)
+
+    def _relu(self, x):
+        return F.leaky_relu(x, 0.2)
+
+    def _to_frames(self, x):
+        return normalize(x ** 2)
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        x = flatten_channels(x)
+        x = self.to_spec_series(x)
+        x = self.spec_stack(x)
+        x = unflatten_channels(x, batch_size)
+        return x
+
+
+class SpecGenerator(nn.Module):
+    def __init__(
+            self, frames, out_channels, noise_dim, initial_dim, channels, ae):
+
+        super().__init__()
+        self.ae = [ae]
+        self.initial_dim = initial_dim
+        self.out_channels = out_channels
+        self.noise_dim = noise_dim
+        self.channels = channels
+        self.frames = frames
+
+        self.latent_dim = 32
+
+        self.to_time_series = TimeSeriesGenerator(
+            frames, self.latent_dim, noise_dim, initial_dim, channels)
+
+        self.spec = SpectrumGenerator(
+            self.latent_dim, channels, initial_dim, out_channels)
+
+    def initialize_weights(self):
+        for name, weight in self.named_parameters():
+            if weight.data.dim() > 2:
+                xavier_normal_(weight.data, calculate_gain('leaky_relu', 0.2))
+        return self
+
+    def forward(self, x):
+        latent = x = self.to_time_series(x)
+        x = self.spec(x)
+        return latent, x
 
 
 class EnergyGenerator(nn.Module):

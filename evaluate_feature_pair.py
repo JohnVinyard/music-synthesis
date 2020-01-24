@@ -9,8 +9,8 @@ from torch.optim import Adam
 from featuresynth.data import DataStore, MdctDataStore
 from featuresynth.feature import total_samples, frequency_recomposition, \
     band_sizes, filter_banks, slices, bandpass_filters, sr, feature_channels
-from featuresynth.featurediscriminator import FrameDiscriminator as Discriminator
-from featuresynth.featuregenerator import FrameGenerator as Generator, AutoEncoder
+from featuresynth.featurediscriminator import SpecDiscriminator as Discriminator
+from featuresynth.featuregenerator import SpecGenerator as Generator, AutoEncoder
 from featuresynth.util import device
 from featuresynth.generator import Generator as AudioGenerator
 
@@ -95,7 +95,7 @@ if __name__ == '__main__':
         initial_dim=16,
         channels=128,
         ae=ae).initialize_weights().to(device)
-    g_optim = Adam(g.parameters(), lr=0.0001, betas=(0, 0.9))
+    g_optim = Adam(g.parameters(), lr=0.00005, betas=(0, 0.9))
     # g.load_state_dict(torch.load('ar_gen.dat'))
 
     d = Discriminator(
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
 
     def noise_vector(batch_size):
-        vec = torch.FloatTensor(batch_size * n_frames, noise_dim).to(device).normal_(0, 1)
+        vec = torch.FloatTensor(batch_size, noise_dim).to(device).normal_(0, 1)
         return vec
 
 
@@ -149,7 +149,7 @@ if __name__ == '__main__':
         d_latent, judgements = d(fake)
         # r_latent, r_judgements = d(batch)
 
-        loss = 0.5 * ((judgements - 1)**2).mean()  # + torch.abs(d_latent - r_latent).sum()
+        loss = 0.5 * ((judgements - 1)**2).mean()  #+ torch.abs(d_latent - r_latent).sum()
         loss.backward()
         g_optim.step()
         return latent.data.cpu().numpy(), fake.data.cpu().numpy(), loss.item()
@@ -161,13 +161,11 @@ if __name__ == '__main__':
         unfreeze(d)
 
         noise = noise_vector(batch_size)
+
         # noise = F.pad(batch, (1, 0))[:, :, :-1]
         latent, fake = g(noise)
-
-
         f_latent, fake_judgements = d(fake)
         r_latent, real_judgements = d(batch)
-
 
         loss = 0.5 * (((real_judgements - 1) ** 2).mean() + (fake_judgements ** 2).mean())
         loss.backward()
@@ -329,15 +327,10 @@ if __name__ == '__main__':
         return preview(latent_to_frames(encoded))
 
 
-    for count, batch in enumerate(ds.batch_stream(batch_size * n_frames, 1)):
-        # (batch, feature_channels, 1)
-        batch = batch.transpose(0, 2, 1)
-        # (batch, 1, feature_channels)
-
+    for count, batch in enumerate(ds.batch_stream(batch_size, n_frames)):
         # max one normalization
-
         # batch = batch.sum(axis=1, keepdims=True)
-        batch = (batch / (np.abs(batch).max(axis=(-1), keepdims=True) + 1e-12))
+        batch = (batch / (np.abs(batch).max(axis=(1, 2), keepdims=True) + 1e-12))
 
         # feature-wise normalization
         # batch = batch - spec_mean

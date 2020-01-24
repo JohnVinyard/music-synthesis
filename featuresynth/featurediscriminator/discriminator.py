@@ -3,7 +3,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.nn.init import xavier_normal_, calculate_gain
 import numpy as np
-from ..util.modules import DownsamplingStack
+from ..util.modules import \
+    DownsamplingStack, flatten_channels, unflatten_channels, DilatedStack
 import math
 import zounds
 
@@ -273,6 +274,88 @@ class FrameDiscriminator(nn.Module):
         x = self.stack(x)
         x = self.judge(x)
         return x, x
+
+
+class SpecDiscriminator(nn.Module):
+    def __init__(self, frames, feature_channels, channels, n_judgements, ae):
+        super().__init__()
+        self.ae = [ae]
+        self.n_judgements = n_judgements
+        self.channels = channels
+        self.feature_channels = feature_channels
+        self.frames = frames
+
+        self.latent_dim = 32
+
+        self.spec_encoder = DownsamplingStack(
+            start_size=feature_channels,
+            target_size=1,
+            scale_factor=2,
+            layer_func=self._build_spec_layer,
+            activation=lambda x: F.leaky_relu(x, 0.2))
+        self.to_latent = nn.Conv1d(
+            self.latent_dim, self.latent_dim, 1, 1, 0, bias=False)
+        self.frame_judge = nn.Conv1d(self.latent_dim, 1, 1, 1, 0, bias=False)
+        # self.time_encoder = DownsamplingStack(
+        #     start_size=frames,
+        #     target_size=1,
+        #     scale_factor=2,
+        #     layer_func=self._build_time_layer,
+        #     activation=lambda x: F.leaky_relu(x, 0.2))
+        self.time_encoder = DilatedStack(
+            self.latent_dim,
+            channels,
+            3,
+            [1, 3, 9, 27, 1],
+            activation=lambda x: F.leaky_relu(x, 0.2))
+
+        self.judge = nn.Conv1d(channels, 1, 1, 1, 0, bias=False)
+
+    def initialize_weights(self):
+        for name, weight in self.named_parameters():
+            if weight.data.dim() > 2:
+                if 'judge' in name:
+                    xavier_normal_(weight.data, 1)
+                else:
+                    xavier_normal_(
+                        weight.data, calculate_gain('leaky_relu', 0.2))
+        return self
+
+    def _build_spec_layer(self, i, curr_size, out_size, first, last):
+        kernel_size = 7 if curr_size > 8 else 3
+        padding = kernel_size // 2
+        return nn.Conv1d(
+            in_channels=1 if first else self.channels,
+            out_channels=self.latent_dim if last else self.channels,
+            kernel_size=kernel_size,
+            stride=2,
+            padding=padding,
+            bias=False)
+
+    def _build_time_layer(self, i, curr_size, out_size, first, last):
+        kernel_size = 7 if curr_size > 8 else 3
+        padding = kernel_size // 2
+        return nn.Conv1d(
+            in_channels=self.latent_dim if first else self.channels,
+            out_channels=self.channels,
+            kernel_size=kernel_size,
+            stride=2,
+            padding=padding,
+            bias=False)
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        x = flatten_channels(x, channels_as_time=True)
+        x = self.spec_encoder(x)
+        x = unflatten_channels(x, batch_size)
+        x = self.to_latent(x)
+        f_j = self.frame_judge(x).mean().view(1)
+        x = self.time_encoder(x)
+        latent = x
+        x = self.judge(x).mean().view(1)
+        x = torch.cat([x, f_j])
+        return latent, x
+
 
 class EnergyDiscriminator(nn.Module):
     """
