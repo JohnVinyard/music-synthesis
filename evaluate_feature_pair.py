@@ -21,6 +21,46 @@ n_frames = 256
 total_feature_samples = total_samples * (n_frames // 64)
 noise_dim = 128
 
+audio_generator_input_size = 64
+audio_generator = AudioGenerator(
+    input_size=audio_generator_input_size,
+    in_channels=feature_channels,
+    channels=128,
+    output_sizes=band_sizes,
+    filter_banks=filter_banks,
+    slices=slices,
+    bandpass_filters=bandpass_filters)
+audio_generator.load_state_dict(torch.load('generator_dilated.dat'))
+[item.fb[0].to(torch.device('cpu')) for item in audio_generator.generators]
+
+
+def preview(fake_batch):
+
+    # fake_batch = fake_batch * spec_std
+    # fake_batch = fake_batch + spec_mean
+
+    fake_batch = torch.from_numpy(fake_batch)
+    inp = fake_batch[0]  # (256, 512)
+
+    window = audio_generator_input_size
+    inp = inp.unfold(1, window, window)  # (256, 8, 64)
+
+    inp = inp.permute(1, 0, 2)  # (8, 256, 64)
+    bands = audio_generator(inp)
+    samples = frequency_recomposition(
+        [np.concatenate(b.data.cpu().numpy().reshape(1, 1, -1), axis=-1)
+         for b in bands.values()],
+        total_feature_samples)
+
+    # synth = zounds.MDCTSynthesizer()
+    # coeffs = zounds.ArrayWithUnits(fake_batch[0].T, [
+    #     zounds.TimeDimension(frequency=sr.frequency * 256, duration=sr.frequency * 512),
+    #     zounds.IdentityDimension()
+    # ])
+    # samples = synth.synthesize(coeffs)
+
+    return zounds.AudioSamples(samples.squeeze(), sr).pad_with_silence()
+
 
 if __name__ == '__main__':
 
@@ -31,45 +71,6 @@ if __name__ == '__main__':
     # ds = MdctDataStore('mdct_data', '/hdd/musicnet/train_data')
 
 
-    audio_generator_input_size = 64
-    audio_generator = AudioGenerator(
-        input_size=audio_generator_input_size,
-        in_channels=feature_channels,
-        channels=128,
-        output_sizes=band_sizes,
-        filter_banks=filter_banks,
-        slices=slices,
-        bandpass_filters=bandpass_filters)
-    audio_generator.load_state_dict(torch.load('generator_dilated.dat'))
-    [item.fb[0].to(torch.device('cpu')) for item in audio_generator.generators]
-
-
-    def preview(fake_batch):
-
-        # fake_batch = fake_batch * spec_std
-        # fake_batch = fake_batch + spec_mean
-
-        fake_batch = torch.from_numpy(fake_batch)
-        inp = fake_batch[0]  # (256, 512)
-
-        window = audio_generator_input_size
-        inp = inp.unfold(1, window, window)  # (256, 8, 64)
-
-        inp = inp.permute(1, 0, 2)  # (8, 256, 64)
-        bands = audio_generator(inp)
-        samples = frequency_recomposition(
-            [np.concatenate(b.data.cpu().numpy().reshape(1, 1, -1), axis=-1)
-             for b in bands.values()],
-            total_feature_samples)
-
-        # synth = zounds.MDCTSynthesizer()
-        # coeffs = zounds.ArrayWithUnits(fake_batch[0].T, [
-        #     zounds.TimeDimension(frequency=sr.frequency * 256, duration=sr.frequency * 512),
-        #     zounds.IdentityDimension()
-        # ])
-        # samples = synth.synthesize(coeffs)
-
-        return zounds.AudioSamples(samples.squeeze(), sr).pad_with_silence()
 
 
     def autoregressive_generation(real=True):
@@ -95,8 +96,11 @@ if __name__ == '__main__':
         initial_dim=16,
         channels=128,
         ae=ae).initialize_weights().to(device)
-    g_optim = Adam(g.parameters(), lr=0.00005, betas=(0, 0.9))
-    # g.load_state_dict(torch.load('ar_gen.dat'))
+    g.spec.load_state_dict(torch.load('gen_spec.dat'))
+    g_frame_optim = Adam(g.spec.parameters(), lr=0.0001, betas=(0, 0.9))
+    g_time_optim = Adam(
+        g.to_time_series.parameters(), lr=0.0001, betas=(0, 0.9))
+    # g_optim = Adam(g.parameters(), lr=0.00005, betas=(0, 0.9))
 
     d = Discriminator(
         frames=n_frames,
@@ -104,14 +108,19 @@ if __name__ == '__main__':
         channels=128,
         n_judgements=1,
         ae=ae).initialize_weights().to(device)
-    d_optim = Adam(d.parameters(), lr=0.0001, betas=(0, 0.9))
-    # d.load_state_dict(torch.load('ardisc.dat'))
-
+    # d.spec_judge.load_state_dict(torch.load('disc_spec.dat'))
+    d_frame_optim = Adam(d.spec_judge.parameters(), lr=0.0001, betas=(0, 0.9))
+    d_time_optim = Adam(d.parameters(), lr=0.0001, betas=(0, 0.9))
+    # d_optim = Adam(d.parameters(), lr=0.0001, betas=(0, 0.9))
 
 
     def zero_grad():
-        g_optim.zero_grad()
-        d_optim.zero_grad()
+        g_frame_optim.zero_grad()
+        g_time_optim.zero_grad()
+        d_frame_optim.zero_grad()
+        d_time_optim.zero_grad()
+        # g_optim.zero_grad()
+        # d_optim.zero_grad()
         g.zero_grad()
         d.zero_grad()
 
@@ -132,44 +141,87 @@ if __name__ == '__main__':
         set_requires_grad(x, True)
 
 
+    vec = torch.FloatTensor(batch_size, noise_dim).to(device).normal_(0, 1)
     def noise_vector(batch_size):
-        vec = torch.FloatTensor(batch_size, noise_dim).to(device).normal_(0, 1)
         return vec
 
+    def frame_noise_vector(batch_size):
+        vec = torch.FloatTensor(batch_size, 32, n_frames)\
+            .to(device).normal_(0, 1)
+        return vec
 
-    def train_generator(batch):
+    def generator_loss(j):
+        return 0.5 * ((j - 1) ** 2).mean()
+
+
+    def train_generator(batch, frames, count):
         zero_grad()
 
         freeze(d)
         unfreeze(g)
 
+        fake_frames = torch.FloatTensor(1)
+        # train frame generator
+        # frame_noise = frame_noise_vector(batch_size)
+        # fake_frames = g.frames_from_latent(frame_noise)
+        # f_j = d.evaluate_latent(fake_frames)
+        # loss = generator_loss(f_j)
+        # loss.backward()
+        # g_frame_optim.step()
+
+        # if count < 10000:
+        #     print('gen early return')
+        #     return None, None, fake_frames.data.cpu().numpy(), loss.item()
+
+        zero_grad()
+
+        # train time generator
         noise = noise_vector(batch_size)
         # noise = F.pad(batch, (1, 0))[:, :, :-1]
         latent, fake = g(noise)
         d_latent, judgements = d(fake)
-        # r_latent, r_judgements = d(batch)
 
-        loss = 0.5 * ((judgements - 1)**2).mean()  #+ torch.abs(d_latent - r_latent).sum()
+        loss = generator_loss(judgements)
         loss.backward()
-        g_optim.step()
-        return latent.data.cpu().numpy(), fake.data.cpu().numpy(), loss.item()
+        g_time_optim.step()
+        return \
+            latent.data.cpu().numpy(), \
+            fake.data.cpu().numpy(), \
+            fake_frames.data.cpu().numpy(), \
+            loss.item()
 
+    def disc_loss(r_j, f_j):
+        return 0.5 * (((r_j - 1) ** 2).mean() + (f_j ** 2).mean())
 
-    def train_discriminator(batch):
+    def train_discriminator(batch, frames, count):
         zero_grad()
         freeze(g)
         unfreeze(d)
 
-        noise = noise_vector(batch_size)
+        # train frame disc
+        # frame_noise = frame_noise_vector(batch_size)
+        # fake = g.frames_from_latent(frame_noise)
+        # f_j = d.evaluate_latent(fake)
+        # r_j = d.evaluate_latent(batch)
+        # loss = disc_loss(r_j, f_j)
+        # loss.backward()
+        # d_frame_optim.step()
 
+        # if count < 10000:
+        #     print('disc early return')
+        #     return loss.item(), None, None, None, None, None
+
+        zero_grad()
+        # train time generator
+        noise = noise_vector(batch_size)
         # noise = F.pad(batch, (1, 0))[:, :, :-1]
         latent, fake = g(noise)
         f_latent, fake_judgements = d(fake)
-        r_latent, real_judgements = d(batch)
+        r_latent, real_judgements = d(frames)
 
-        loss = 0.5 * (((real_judgements - 1) ** 2).mean() + (fake_judgements ** 2).mean())
+        loss = disc_loss(real_judgements, fake_judgements)
         loss.backward()
-        d_optim.step()
+        d_time_optim.step()
 
         return \
             loss.item(), \
@@ -223,6 +275,8 @@ if __name__ == '__main__':
 
     real = None
     features = None
+    fake_frames = None
+    real_frames = None
     fake_features = None
     predicted_frame = None
     real_frame = None
@@ -327,24 +381,33 @@ if __name__ == '__main__':
         return preview(latent_to_frames(encoded))
 
 
-    for count, batch in enumerate(ds.batch_stream(batch_size, n_frames)):
+    count = 0
+    time_stream = ds.batch_stream(batch_size, n_frames)
+    frame_stream = ds.batch_stream(batch_size * n_frames, 1)
+
+    for batch, frames in zip(time_stream, frame_stream):
+        frames = frames.reshape(batch_size, n_frames, feature_channels).transpose(0, 2, 1)
+
         # max one normalization
-        # batch = batch.sum(axis=1, keepdims=True)
-        batch = (batch / (np.abs(batch).max(axis=(1, 2), keepdims=True) + 1e-12))
+        frames = (frames / (np.abs(frames).max(axis=(1,), keepdims=True) + 1e-12))
+        # max one normalization
+        batch = (batch / (np.abs(batch).max(axis=(1,), keepdims=True) + 1e-12))
 
         # feature-wise normalization
         # batch = batch - spec_mean
         # batch = batch / spec_std
 
-
+        frames = torch.from_numpy(frames).to(device)
         batch = torch.from_numpy(batch).to(device)
 
         # batch = batch_to_latent(batch)
 
         real = batch.data.cpu().numpy()
+        real_frames = frames.data.cpu().numpy()
 
 
-        d_loss, real_j, fake_j, features, d_f_latent, d_r_latent = train_discriminator(batch)
-        g_latent, fake_features, g_loss = train_generator(batch)
+        d_loss, real_j, fake_j, features, d_f_latent, d_r_latent = train_discriminator(batch, frames, count)
+        g_latent, fake_features, fake_frames, g_loss = train_generator(batch, frames, count)
         print(f'Batch {count} generator: {g_loss} disc: {d_loss}')
+        count += 1
 

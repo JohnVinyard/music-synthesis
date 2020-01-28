@@ -57,15 +57,21 @@ class DilatedStack(nn.Module):
             kernel_size,
             dilations,
             activation,
-            residual=True):
+            residual=True,
+            groups=None):
 
         super().__init__()
+        if groups is None:
+            groups = [1] * len(dilations)
+
+        self.groups = groups
         self.residual = residual
         self.activation = activation
         self.dilations = dilations
         self.kernel_size = kernel_size
         self.channels = channels
         self.in_channels = in_channels
+
 
         layers = []
         for i, d in enumerate(dilations):
@@ -75,18 +81,26 @@ class DilatedStack(nn.Module):
                 kernel_size,
                 padding=d,
                 dilation=d,
+                groups=groups[i],
                 bias=False))
         self.main = nn.Sequential(*layers)
 
-    def forward(self, x):
-        x = x.view(x.shape[0], self.in_channels, -1)
+    def forward(self, x, return_features=False):
+        batch_size = x.shape[0]
+        x = x.view(batch_size, self.in_channels, -1)
+        features = []
         for layer in self.main:
             z = layer(x)
             if self.residual and z.shape[1] == x.shape[1]:
                 x = self.activation(z + x)
             else:
                 x = self.activation(z)
-        return x
+            features.append(x)
+
+        if return_features:
+            return features, x
+        else:
+            return x
 
 
 class UpSample(nn.Module):
@@ -195,6 +209,8 @@ class DownsamplingStack(nn.Module):
             curr_size = out_size
         self.main = nn.Sequential(*layers)
 
+    def __iter__(self):
+        yield from self.main
 
     def forward(self, x):
         for layer in self.main:

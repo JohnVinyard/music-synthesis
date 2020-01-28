@@ -60,7 +60,7 @@ class DataStore(BaseDataStore):
 
     def batch_stream(self, batch_size, feature_length):
         all_keys = list(self.iter_keys())
-        # all_keys = list(filter(lambda x: x == b'2533', all_keys))
+        all_keys = list(filter(lambda x: x == b'2533', all_keys))
         while True:
             batch = []
             for _ in range(batch_size):

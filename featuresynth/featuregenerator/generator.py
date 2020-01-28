@@ -193,48 +193,52 @@ class ARGenerator(nn.Module):
         return x, x
 
 
-class FrameGenerator(nn.Module):
-    def __init__(self, frames, out_channels, noise_dim, initial_dim, channels,
-                 ae):
-        super().__init__()
-        self.ae = [ae]
-        self.initial_dim = initial_dim
-        self.out_channels = out_channels
-        self.noise_dim = noise_dim
-        self.channels = channels
-        self.frames = frames
-
-        self.to_time_series = ToTimeSeries(noise_dim, channels, initial_dim)
-        self.stack = UpsamplingStack(
-            initial_dim,
-            out_channels,
-            scale_factor=2,
-            layer_func=self._build_layer)
-
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                xavier_normal_(weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
-
-    def _build_layer(self, i, curr_size, out_size, first, last):
-        return UpSample(
-            in_channels=self.channels,
-            out_channels=1 if last else self.channels,
-            kernel_size=7,
-            scale_factor=2,
-            activation=self._to_frames if last else self._relu)
-
-    def _relu(self, x):
-        return F.leaky_relu(x, 0.2)
-
-    def _to_frames(self, x):
-        return normalize(x ** 2)
-
-    def forward(self, x):
-        x = F.leaky_relu(self.to_time_series(x), 0.2)
-        x = self.stack(x)
-        return x, x
+# class FrameGenerator(nn.Module):
+#     def __init__(self, frames, out_channels, noise_dim, initial_dim, channels,
+#                  ae):
+#         super().__init__()
+#         self.ae = [ae]
+#         self.initial_dim = initial_dim
+#         self.out_channels = out_channels
+#         self.noise_dim = noise_dim
+#         self.channels = channels
+#         self.frames = frames
+#
+#         self.to_time_series = ToTimeSeries(noise_dim, channels, initial_dim)
+#         self.stack = UpsamplingStack(
+#             initial_dim,
+#             out_channels,
+#             scale_factor=2,
+#             layer_func=self._build_layer)
+#
+#     def initialize_weights(self):
+#         for name, weight in self.named_parameters():
+#             if weight.data.dim() > 2:
+#                 xavier_normal_(weight.data, calculate_gain('leaky_relu', 0.2))
+#         return self
+#
+#     def _build_layer(self, i, curr_size, out_size, first, last):
+#         return UpSample(
+#             in_channels=self.channels,
+#             out_channels=1 if last else self.channels,
+#             kernel_size=7,
+#             scale_factor=2,
+#             activation=self._to_frames if last else self._relu)
+#
+#     def _relu(self, x):
+#         return F.leaky_relu(x, 0.2)
+#
+#     def _to_frames(self, x):
+#         x = x ** 2
+#         mx, _ = x.max(dim=0, keepdim=True)
+#         print(mx.shape)
+#         x = x / (mx + 1e-8)
+#         return x
+#
+#     def forward(self, x):
+#         x = F.leaky_relu(self.to_time_series(x), 0.2)
+#         x = self.stack(x)
+#         return x, x
 
 
 class TimeSeriesGenerator(nn.Module):
@@ -257,24 +261,42 @@ class TimeSeriesGenerator(nn.Module):
         self.frames = frames
 
         self.to_time_series = ToTimeSeries(noise_dim, channels, initial_dim)
-        self.initial = DilatedStack(
-            channels, channels, 3, [1, 3], lambda x: F.leaky_relu(x, 0.2),
-            residual=False)
-        self.final = DilatedStack(
-            channels,
-            channels,
-            3,
-            [27, 9, 3, 1, 1, 1],
-            activation=lambda x: F.leaky_relu(x, 0.2), residual=False)
+        # self.initial = DilatedStack(
+        #     channels, channels, 3, [1, 3], lambda x: F.leaky_relu(x, 0.2),
+        #     residual=False)
+        # self.final = DilatedStack(
+        #     channels,
+        #     channels,
+        #     3,
+        #     [27, 9, 3, 1, 1, 1],
+        #     activation=lambda x: F.leaky_relu(x, 0.2), residual=False)
+
+        self.upsample = UpsamplingStack(
+            initial_dim,
+            frames * 2,
+            2,
+            layer_func=self._build_layer)
         self.to_latent = nn.Conv1d(
             channels, self.latent_out_channels, 1, 1, 0, bias=False)
+        # self.bn = nn.BatchNorm1d(self.latent_out_channels)
+
+    def _build_layer(self, i, curr_size, out_size, first, last):
+        return UpSample(
+            self.channels,
+            self.channels,
+            3,
+            2,
+            lambda x: F.leaky_relu(x, 0.2))
 
     def forward(self, x):
         x = self.to_time_series(x)
-        x = self.initial(x)
-        x = F.upsample(x, size=self.frames)
-        x = self.final(x)
+        # x = self.initial(x)
+        # x = F.upsample(x, size=self.frames)
+        # x = self.final(x)
+        x = self.upsample(x)
         x = self.to_latent(x)
+        # x = self.bn(x)
+        x = x[:, :, 128:-128]
         return x
 
 
@@ -295,10 +317,10 @@ class SpectrumGenerator(nn.Module):
             layer_func=self._build_spec_layer)
 
     def _build_spec_layer(self, i, curr_size, out_size, first, last):
-        return UpSample(
+        return LearnedUpSample(
             in_channels=self.channels,
             out_channels=1 if last else self.channels,
-            kernel_size=7,
+            kernel_size=8,
             scale_factor=2,
             activation=self._to_frames if last else self._relu)
 
@@ -342,6 +364,9 @@ class SpecGenerator(nn.Module):
             if weight.data.dim() > 2:
                 xavier_normal_(weight.data, calculate_gain('leaky_relu', 0.2))
         return self
+
+    def frames_from_latent(self, x):
+        return self.spec(x)
 
     def forward(self, x):
         latent = x = self.to_time_series(x)
