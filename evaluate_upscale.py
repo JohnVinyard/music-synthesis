@@ -94,6 +94,7 @@ g = LowResGenerator(
     channels,
     None).initialize_weights().to(device)
 g_optim = Adam(g.parameters(), lr=0.0001, betas=(0, 0.9))
+g.load_state_dict(torch.load('sequence_gen.dat'))
 
 
 d = LowResDiscriminator(
@@ -103,6 +104,7 @@ d = LowResDiscriminator(
     None,
     None).initialize_weights().to(device)
 d_optim = Adam(d.parameters(), lr=0.0001, betas=(0, 0.9))
+d.load_state_dict(torch.load('sequence_disc.dat'))
 
 # sizes = cycle(list(g.layers.keys()))
 # conditioning = cycle([True, False])

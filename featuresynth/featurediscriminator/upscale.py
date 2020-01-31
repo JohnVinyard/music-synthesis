@@ -226,6 +226,7 @@ class LowResDiscriminator(nn.Module):
     def forward(self, x):
 
         x = self.stack(x)
+
         # x = x.view(x.shape[0], 1, self.feature_channels, self.frames)
         # for layer in self.stack:
         #     x = F.leaky_relu(layer(x), 0.2)
