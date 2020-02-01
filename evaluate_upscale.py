@@ -63,28 +63,6 @@ def preview(fake_batch):
     return zounds.AudioSamples(samples.squeeze(), sr).pad_with_silence()
 
 
-# g = Generator(
-#     n_frames,
-#     feature_channels,
-#     noise_dim,
-#     initial_dim,
-#     channels,
-#     None).initialize_weights().to(device)
-# g_optims = {
-#     size: Adam(layer.parameters(), lr=0.0001, betas=(0, 0.9))
-#     for size, layer in g.layers.items()}
-# g.load_state_dict(torch.load('upscale_gen.dat'))
-
-# d = Discriminator(
-#     n_frames,
-#     feature_channels,
-#     channels,
-#     None,
-#     None).initialize_weights().to(device)
-# d_optims = {
-#     size: Adam(layer.parameters(), lr=0.0001, betas=(0, 0.9))
-#     for size, layer in d.layers.items()}
-# d.load_state_dict(torch.load('upscale_disc.dat'))
 
 g = LowResGenerator(
     n_frames,

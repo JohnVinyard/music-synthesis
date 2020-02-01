@@ -19,6 +19,12 @@ import time
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        '--path',
+        required=True)
+    parser.add_argument(
+        '--pattern',
+        default='*.wav')
+    parser.add_argument(
         '--limit',
         type=int,
         required=False,
@@ -62,10 +68,11 @@ if __name__ == '__main__':
     app.start_in_thread(8888)
 
     r = TrainingData(
-        '/hdd/musicnet/train_data',
-        args.batch_size,
-        total_samples,
-        sr,
+        path=args.path,
+        pattern=args.pattern,
+        batch_size=args.batch_size,
+        total_samples=total_samples,
+        sr=sr,
         n_audio_workers=2,
         n_batch_workers=4,
         limit_samples=args.limit)

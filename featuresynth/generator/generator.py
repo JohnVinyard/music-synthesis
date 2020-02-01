@@ -219,6 +219,7 @@ class SineChannelGenerator(nn.Module):
         return result
 
 
+
 class DilatedChannelGenerator(nn.Module):
     def __init__(self, input_size, target_size, in_channels, channels, fb, sl,
                  bandpass):
@@ -264,6 +265,8 @@ class DilatedChannelGenerator(nn.Module):
         self.scale = nn.Parameter(torch.FloatTensor(1).fill_(0.0001))
 
         self.activation = lambda x: F.leaky_relu(x, 0.2)
+
+
 
     def forward(self, x):
         batch_size = x.shape[0]

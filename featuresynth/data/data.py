@@ -8,21 +8,40 @@ import numpy as np
 import torch
 from ..feature import \
     band_sizes, frequency_decomposition, compute_features
+from fnmatch import fnmatch
 
 
 def preprocess_audio(samples, target_samplerate):
     return zounds.soundfile.resample(samples.mono, target_samplerate)
 
 
+def iter_files(base_path, pattern):
+    for dirpath, dirnames, filenames in os.walk(base_path):
+        audio_files = filter(
+            lambda x: fnmatch(x, pattern),
+            (os.path.join(dirpath, fn) for fn in filenames))
+        yield from audio_files
+
+
 class AudioReservoir(Thread):
-    def __init__(self, path, reservoir, total_samples, sr, limit_samples=None):
+    def __init__(
+            self,
+            path,
+            reservoir,
+            total_samples,
+            sr,
+            limit_samples=None,
+            pattern='*.wav'):
+
         super().__init__(daemon=True)
         self.limit_samples = limit_samples
         self.sr = sr
         self.total_samples = total_samples
         self.reservoir = reservoir
         self.path = path
-        self.files = os.listdir(self.path)
+        self.files = list(iter_files(path, pattern))
+        # self.files = os.listdir(self.path)
+        # iter_files(path, pattern)
 
     def _audio_segment(self):
         filename = choice(self.files)
@@ -104,7 +123,8 @@ class TrainingData(object):
             n_audio_workers=4,
             n_batch_workers=4,
             limit_samples=None,
-            reservoir_size=int(1e5)):
+            reservoir_size=int(1e5),
+            pattern='*.wav'):
 
         super().__init__()
         self.reservoir_size = reservoir_size
@@ -118,7 +138,7 @@ class TrainingData(object):
 
         self.audio_workers = \
             [AudioReservoir(path, self.reservoir, total_samples, sr,
-                            limit_samples) for _ in
+                            limit_samples, pattern=pattern) for _ in
              range(n_audio_workers)]
         for worker in self.audio_workers:
             worker.start()
