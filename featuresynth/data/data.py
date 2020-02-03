@@ -8,19 +8,11 @@ import numpy as np
 import torch
 from ..feature import \
     band_sizes, frequency_decomposition, compute_features
-from fnmatch import fnmatch
+from ..util.datasource import iter_files
 
 
 def preprocess_audio(samples, target_samplerate):
     return zounds.soundfile.resample(samples.mono, target_samplerate)
-
-
-def iter_files(base_path, pattern):
-    for dirpath, dirnames, filenames in os.walk(base_path):
-        audio_files = filter(
-            lambda x: fnmatch(x, pattern),
-            (os.path.join(dirpath, fn) for fn in filenames))
-        yield from audio_files
 
 
 class AudioReservoir(Thread):
@@ -61,7 +53,7 @@ class AudioReservoir(Thread):
         indices = np.where(mx > 0)
         orig_len = len(windowed)
         windowed = windowed[indices]
-        print(f'Lengths {orig_len} {len(windowed)}')
+        # print(f'Lengths {orig_len} {len(windowed)}')
         windowed /= mx[indices][:, None]
         # windowed /= (windowed.max(axis=-1, keepdims=True) + 1e-8)
         windowed = np.array(windowed)
@@ -82,8 +74,9 @@ class AudioReservoir(Thread):
 
 
 class BatchReservoir(Thread):
-    def __init__(self, reservoir, batch_size, batch_queue):
+    def __init__(self, reservoir, batch_size, batch_queue, decompose=True):
         super().__init__(daemon=True)
+        self.decompose = decompose
         self.batch_queue = batch_queue
         self.batch_size = batch_size
         self.reservoir = reservoir
@@ -91,7 +84,10 @@ class BatchReservoir(Thread):
     def _get_batch(self):
         samples = self.reservoir.get_batch(self.batch_size)
         features = compute_features(samples)
-        samples = decompose(samples)
+        if self.decompose:
+            samples = decompose(samples)
+        else:
+            samples = torch.from_numpy(samples).float().to(device)
         return samples, features
 
     def run(self):

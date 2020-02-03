@@ -3,7 +3,7 @@ import torch
 from itertools import cycle
 import zounds
 from torch import nn
-from featuresynth.data import DataStore
+from featuresynth.data import DataStore, MdctDataStore
 from torch.nn import functional as F
 from featuresynth.featuregenerator.upscale import Generator, LowResGenerator
 from featuresynth.featurediscriminator.upscale import Discriminator, LowResDiscriminator
@@ -32,7 +32,7 @@ audio_generator = AudioGenerator(
     filter_banks=filter_banks,
     slices=slices,
     bandpass_filters=bandpass_filters)
-audio_generator.load_state_dict(torch.load('generator_dilated.dat'))
+audio_generator.load_state_dict(torch.load('hip_hop_generator_dilated.dat'))
 [item.fb[0].to(torch.device('cpu')) for item in audio_generator.generators]
 
 
@@ -72,7 +72,7 @@ g = LowResGenerator(
     channels,
     None).initialize_weights().to(device)
 g_optim = Adam(g.parameters(), lr=0.0001, betas=(0, 0.9))
-g.load_state_dict(torch.load('sequence_gen.dat'))
+g.load_state_dict(torch.load('hip_hop_sequence_gen.dat'))
 
 
 d = LowResDiscriminator(
@@ -82,10 +82,8 @@ d = LowResDiscriminator(
     None,
     None).initialize_weights().to(device)
 d_optim = Adam(d.parameters(), lr=0.0001, betas=(0, 0.9))
-d.load_state_dict(torch.load('sequence_disc.dat'))
+d.load_state_dict(torch.load('hip_hop_sequence_disc.dat'))
 
-# sizes = cycle(list(g.layers.keys()))
-# conditioning = cycle([True, False])
 
 
 def generator_loss(j):
@@ -99,10 +97,6 @@ def disc_loss(r_j, f_j):
 def zero_grad():
     g_optim.zero_grad()
     d_optim.zero_grad()
-    # for optim in d_optims.values():
-    #     optim.zero_grad()
-    # for optim in g_optims.values():
-    #     optim.zero_grad()
 
 
 def set_requires_grad(x, requires_grad):
@@ -156,7 +150,10 @@ if __name__ == '__main__':
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
     app.start_in_thread()
 
-    ds = DataStore('feature_data', '/hdd/musicnet/train_data')
+    # ds = MdctDataStore('mdct_data', '/hdd/musicnet/train_data')
+    # ds.populate()
+    ds = DataStore('hip_hop_feature_data', '/hdd/kevingates', pattern='*.ogg')
+    # ds.populate()
 
     def train_generator(batch):
         zero_grad()
@@ -192,101 +189,3 @@ if __name__ == '__main__':
         if count > 0 and count % 2 == 0:
             print(f'batch: {count}, g: {{g_loss}}, d: {{d_loss}}'
                   .format(**training_data))
-
-    # for count, batch in enumerate(ds.batch_stream(
-    #         batch_size=batch_size, feature_length=n_frames)):
-    #     size = next(sizes)
-    #     # conditioned = np.random.random() > 0.5
-    #     conditioned = True
-    #
-    #     batch = torch.from_numpy(batch).to(device)
-    #
-    #     if size == 1:
-    #         # there is never any conditioning for loudness time series
-    #         conditioned = False
-    #
-    #         # train discriminator
-    #         zero_grad()
-    #         freeze(g)
-    #         unfreeze(d)
-    #         fake_loudness = g.layers[size](noise(batch_size))
-    #         real_loudness = downsample(batch, 1)
-    #         real[size] = real_loudness.data.cpu().numpy()
-    #         r_j = d.layers[size](real_loudness)
-    #         f_j = d.layers[size](fake_loudness)
-    #         loss = disc_loss(r_j, f_j)
-    #         loss.backward()
-    #         d_loss = loss.item()
-    #         d_optims[size].step()
-    #
-    #         # train generator
-    #         zero_grad()
-    #         freeze(d)
-    #         unfreeze(g)
-    #         fake_loudness = g.layers[size](noise(batch_size))
-    #         results[size] = fake_loudness.data.cpu().numpy()
-    #         f_j = d.layers[size](fake_loudness)
-    #         loss = generator_loss(f_j)
-    #         loss.backward()
-    #         g_loss = loss.item()
-    #         g_optims[size].step()
-    #     elif conditioned:
-    #         zero_grad()
-    #         # train discriminator
-    #         freeze(g)
-    #         unfreeze(d)
-    #         condition, output = get_conditioning(batch, size)
-    #         real[size] = condition.data.cpu().numpy(), output.data.cpu().numpy()
-    #         fake = g.layers[size](noise(batch_size), condition)
-    #         r_f, r_j = d.layers[size](condition, output)
-    #         f_f, f_j = d.layers[size](condition, fake)
-    #         loss = disc_loss(r_j, f_j)
-    #         loss.backward()
-    #         d_loss = loss.item()
-    #         d_optims[size].step()
-    #
-    #         # train generator
-    #         zero_grad()
-    #         freeze(d)
-    #         unfreeze(g)
-    #         condition, output = get_conditioning(batch, size)
-    #         fake = g.layers[size](noise(batch_size), condition)
-    #         results[size] = \
-    #             condition.data.cpu().numpy(), fake.data.cpu().numpy()
-    #         f_f, f_j = d.layers[size](condition, fake)
-    #         r_f, r_j = d.layers[size](condition, output)
-    #         dist = sum(
-    #             [torch.abs(r - f).sum() / r.shape[1] for r, f in zip(r_f, f_f)])
-    #         loss = generator_loss(f_j) + dist
-    #         g_loss = loss.item()
-    #         loss.backward()
-    #         g_optims[size].step()
-    #     else:
-    #         # train discriminator unconditioned
-    #         zero_grad()
-    #         freeze(g)
-    #         unfreeze(d)
-    #         _, output = get_conditioning(batch, size)
-    #         fake = g.forward(noise(batch_size), output_size=size)
-    #         _, f_j = d.layers[size](None, fake)
-    #         _, r_j = d.layers[size](None, output)
-    #         loss = disc_loss(r_j, f_j)
-    #         d_loss = loss.item()
-    #         loss.backward()
-    #         d_optims[size].step()
-    #
-    #         # train generator unconditioned
-    #         zero_grad()
-    #         freeze(d)
-    #         unfreeze(g)
-    #         fake = g.forward(noise(batch_size), output_size=size)
-    #         results_u[size] = \
-    #             None, fake.data.cpu().numpy()
-    #         _, f_j = d.layers[size](None, fake)
-    #         loss = generator_loss(f_j)
-    #         g_loss = loss.item()
-    #         loss.backward()
-    #         g_optims[size].step()
-    #
-    #     print(
-    #         f'batch: {count}, c: {conditioned}, size: {size}, g: {g_loss}, d: {d_loss}')

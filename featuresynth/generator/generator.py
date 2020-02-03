@@ -6,6 +6,8 @@ import torch
 from torch.nn.init import xavier_normal_, calculate_gain, orthogonal_
 import zounds
 import math
+from .ddsp import oscillator_bank, noise_bank
+from ..util import device
 
 
 def weight_norm(x):
@@ -52,21 +54,16 @@ class GeneratorBlock(nn.Module):
             padding=self.upsample_factor // 2,
             bias=False))
 
-
-
     def forward(self, x):
         batch_size = x.shape[0]
         dim = x.shape[-1]
         x = x.view(x.shape[0], self.channels, -1)
-
-
 
         for i, layer in enumerate(self.main):
             t = layer(x)
             # This residual seems to be very important, at least when using a
             # mostly-positive activation like ReLU
             x = self.activation(x + t[..., :dim])
-
 
         if self.upsample_factor > 1:
             x = self.upsampler(x)
@@ -75,11 +72,9 @@ class GeneratorBlock(nn.Module):
         return x
 
 
-
-
-
 class SineChannelGenerator(nn.Module):
-    def __init__(self, input_size, target_size, in_channels, channels, fb, sl, bandpass):
+    def __init__(self, input_size, target_size, in_channels, channels, fb, sl,
+                 bandpass):
         super().__init__()
         self.bandpass = bandpass
         self.sl = sl
@@ -105,18 +100,13 @@ class SineChannelGenerator(nn.Module):
         self.band_starts = band_starts.astype(np.float32)[:-1]
         self.band_ranges = bandwidths.astype(np.float32)
 
-
-
-
         print(self.target_size, '==================================')
         print(self.band_starts)
         print(self.band_ranges)
 
-
         self.embedding_layer = \
             weight_norm(
                 nn.Conv1d(sl.stop - sl.start, channels, 1, 1, bias=False))
-
 
         self.main = nn.Sequential(
             nn.Conv1d(channels, channels, 3, 1, 1, bias=False),
@@ -125,8 +115,10 @@ class SineChannelGenerator(nn.Module):
         )
 
         self.amps = nn.Conv1d(channels, filter_bank_channels, 1, 1, bias=False)
-        self.frequencies = nn.Conv1d(channels, filter_bank_channels, 1, 1, bias=False)
-        self.phases = nn.Conv1d(channels, filter_bank_channels, 1, 1, bias=False)
+        self.frequencies = nn.Conv1d(channels, filter_bank_channels, 1, 1,
+                                     bias=False)
+        self.phases = nn.Conv1d(channels, filter_bank_channels, 1, 1,
+                                bias=False)
 
         # self.amps = nn.Sequential(
         #     nn.Conv1d(channels, channels, 3, 1, 1, bias=False),
@@ -150,7 +142,6 @@ class SineChannelGenerator(nn.Module):
         # )
 
         self.scale = nn.Parameter(torch.FloatTensor(1).fill_(0.0001))
-
 
     def forward(self, x):
         batch_size = x.shape[0]
@@ -199,7 +190,8 @@ class SineChannelGenerator(nn.Module):
 
         band_starts = torch.from_numpy(self.band_starts).to(x.device)
         band_ranges = torch.from_numpy(self.band_ranges).to(x.device)
-        freqs = band_starts[None, :, None] + (freqs * band_ranges[None, :, None])
+        freqs = band_starts[None, :, None] + (
+        freqs * band_ranges[None, :, None])
 
         amps = amps * torch.abs(self.scale)
 
@@ -217,7 +209,6 @@ class SineChannelGenerator(nn.Module):
         result = amps * torch.sin(x)
         result = result.sum(dim=1, keepdim=True)
         return result
-
 
 
 class DilatedChannelGenerator(nn.Module):
@@ -266,8 +257,6 @@ class DilatedChannelGenerator(nn.Module):
 
         self.activation = lambda x: F.leaky_relu(x, 0.2)
 
-
-
     def forward(self, x):
         batch_size = x.shape[0]
         x = x.view(batch_size, -1, self.input_size)
@@ -279,7 +268,8 @@ class DilatedChannelGenerator(nn.Module):
         for layer in self.feature:
             embedded = layer(embedded)
 
-        embedded = F.upsample(embedded, scale_factor=self.scale_factor, mode='nearest')
+        embedded = F.upsample(embedded, scale_factor=self.scale_factor,
+                              mode='nearest')
 
         for i, layer in enumerate(self.main):
             embedded = layer(embedded)
@@ -293,7 +283,6 @@ class DilatedChannelGenerator(nn.Module):
         #     samples, self.bandpass, padding=self.bandpass.shape[-1] // 2)
 
         return samples[..., :self.target_size]
-
 
 
 class ChannelGenerator(nn.Module):
@@ -310,9 +299,6 @@ class ChannelGenerator(nn.Module):
         self.embedding_layer = \
             weight_norm(
                 nn.Conv1d(sl.stop - sl.start, channels, 1, 1, bias=False))
-
-
-
 
         n_layers = int(np.log2(target_size) - np.log2(input_size))
         layers = []
@@ -381,6 +367,76 @@ class ChannelGenerator(nn.Module):
         return samples[..., :self.target_size]
 
 
+class DDSPGenerator(nn.Module):
+    def __init__(
+            self,
+            input_size,
+            in_channels,
+            channels,
+            output_sizes,
+            filter_banks,
+            slices,
+            bandpass_filters):
+        super().__init__()
+        self.bandpass_filters = bandpass_filters
+        self.slices = slices
+        self.channels = channels
+        self.output_sizes = output_sizes
+        self.in_channels = in_channels
+        self.input_size = input_size
+
+        self.main = nn.Sequential(
+            nn.Conv1d(256, 128, 1, 1, 0, bias=False),
+            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
+            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
+            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
+        )
+
+        n_osc = 512
+        # number of fft coefficients needed for each window of samples
+        # total_samples / param sample rate / 2
+        noise_shape = (16384 // 64 // 2) + 1
+        self.loudness = nn.Conv1d(128, n_osc, 1, 1, 0, bias=False)
+        self.frequency = nn.Conv1d(128, n_osc, 1, 1, 0, bias=False)
+        self.noise_loudness = nn.Conv1d(128, noise_shape * 2, 1, 1, 0, bias=False)
+
+        # n_osc
+        stops = np.geomspace(20, 11025 / 2, num=n_osc)
+        # n_osc + 1
+        freqs = [0] + list(stops)
+        # n_osc
+        diffs = np.diff(freqs)
+        # n_osc
+        starts = stops - diffs
+
+        self.starts = torch.from_numpy(starts).to(device).float()
+        self.diffs = torch.from_numpy(diffs).to(device).float()
+
+
+    def initialize_weights(self):
+        for name, weight in self.named_parameters():
+            if weight.data.dim() > 2:
+                if 'samples' in name:
+                    xavier_normal_(weight.data, 1)
+                else:
+                    xavier_normal_(
+                        weight.data, calculate_gain('leaky_relu', 0.2))
+        return self
+
+    def forward(self, x):
+        x = x.view(-1, self.in_channels, self.input_size)
+        for layer in self.main:
+            x = F.leaky_relu(layer(x), 0.2)
+        l = self.loudness(x) ** 2
+        f = F.sigmoid(self.frequency(x))  # (batch, osc, time)
+        f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
+        n_l = (self.noise_loudness(x) ** 2)
+
+        l = F.upsample(l, size=16384, mode='linear')
+        f = F.upsample(f, size=16384, mode='linear')
+        return oscillator_bank(f, l, 11025) + noise_bank(n_l)
+
+
 class Generator(nn.Module):
     def __init__(
             self,
@@ -405,8 +461,9 @@ class Generator(nn.Module):
         for size, fb, sl, bpf in zip(output_sizes, filter_banks, slices,
                                      bandpass_filters):
             generators.append(
-                DilatedChannelGenerator(input_size, size, in_channels, channels, fb,
-                                 sl, bpf))
+                DilatedChannelGenerator(input_size, size, in_channels, channels,
+                                        fb,
+                                        sl, bpf))
         self.generators = nn.Sequential(*generators)
 
     def initialize_weights(self):

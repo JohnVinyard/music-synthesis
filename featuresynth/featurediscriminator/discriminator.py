@@ -590,3 +590,5 @@ class FullDiscriminator(nn.Module):
         x = self.judge(x).mean().view(1)
         x = torch.cat([f_j, x])
         return latent, x
+
+
