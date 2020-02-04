@@ -6,7 +6,7 @@ import torch
 from torch.nn.init import xavier_normal_, calculate_gain, orthogonal_
 import zounds
 import math
-from .ddsp import oscillator_bank, noise_bank
+from .ddsp import oscillator_bank, smooth_upsample2, noise_bank2
 from ..util import device
 
 
@@ -398,7 +398,7 @@ class DDSPGenerator(nn.Module):
         noise_shape = (16384 // 64 // 2) + 1
         self.loudness = nn.Conv1d(128, n_osc, 1, 1, 0, bias=False)
         self.frequency = nn.Conv1d(128, n_osc, 1, 1, 0, bias=False)
-        self.noise_loudness = nn.Conv1d(128, noise_shape * 2, 1, 1, 0, bias=False)
+        self.noise_loudness = nn.Conv1d(128, noise_shape, 1, 1, 0, bias=False)
 
         # n_osc
         stops = np.geomspace(20, 11025 / 2, num=n_osc)
@@ -427,14 +427,20 @@ class DDSPGenerator(nn.Module):
         x = x.view(-1, self.in_channels, self.input_size)
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
+
+        # oscillator channel loudness
         l = self.loudness(x) ** 2
+
+        # oscillator channel frequency (constrained within band)
         f = F.sigmoid(self.frequency(x))  # (batch, osc, time)
         f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
-        n_l = (self.noise_loudness(x) ** 2)
 
-        l = F.upsample(l, size=16384, mode='linear')
+        # desired frequency response of FIR filter in the frequency domain
+        n_l = self.noise_loudness(x) ** 2
+
+        l = smooth_upsample2(l, size=16384)
         f = F.upsample(f, size=16384, mode='linear')
-        return oscillator_bank(f, l, 11025) + noise_bank(n_l)
+        return oscillator_bank(f, l, 11025), noise_bank2(n_l), l, f, n_l
 
 
 class Generator(nn.Module):
