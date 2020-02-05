@@ -5,6 +5,7 @@ import os
 from torch import nn
 from featuresynth.data import TrainingData
 from featuresynth.generator import DDSPGenerator
+from featuresynth.generator.ddsp import np_overlap_add
 from featuresynth.util import device
 from featuresynth.feature import \
     sr, total_samples, frequency_recomposition, feature_channels, band_sizes, \
@@ -71,16 +72,18 @@ def get_filter_coeffs(window_size):
 
 def test_spectral_filtering():
     # (1, 129, 64)
-    coeffs = get_filter_coeffs(256)
+    coeffs = get_filter_coeffs(512)
 
     noise = np.random.uniform(-1, 1, 16384)
-    windowed = zounds.sliding_window(noise, 256, 256)
+    windowed = zounds.sliding_window(noise, 512, 256)
     # (1, 64, 256)
     noise_coeffs = np.fft.rfft(windowed, axis=-1, norm='ortho')
     # (1, 64, 129)
 
     filtered = coeffs.transpose((0, 2, 1)) * noise_coeffs
-    recovered = np.fft.irfft(filtered, axis=-1, norm='ortho').reshape(-1)
+    recovered = np.fft.irfft(filtered, axis=-1, norm='ortho')
+    print(recovered.shape)
+    raise NotImplementedError()
     # (1, 64, 256)
     return zounds.AudioSamples(recovered, zounds.SR11025()).pad_with_silence()
 

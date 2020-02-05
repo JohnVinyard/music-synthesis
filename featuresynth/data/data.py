@@ -11,9 +11,18 @@ from ..feature import \
 from ..util.datasource import iter_files
 
 
-def preprocess_audio(samples, target_samplerate):
-    return zounds.soundfile.resample(samples.mono, target_samplerate)
+def preprocess_audio(samples, target_samplerate, min_samples):
+    samples = zounds.soundfile.resample(samples.mono, target_samplerate)
 
+    # ensure there are at least min_samples
+    if len(samples) < min_samples:
+        diff = min_samples - len(samples)
+        samples = zounds.AudioSamples(
+            np.pad(samples, ((0, diff)), 'constant'),
+            samples.samplerate)
+        assert len(samples) == min_samples
+
+    return samples
 
 class AudioReservoir(Thread):
     def __init__(

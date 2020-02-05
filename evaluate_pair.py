@@ -1,8 +1,8 @@
 import zounds
-from featuresynth.data import TrainingData
+from featuresynth.data import DataStore
 from featuresynth.feature import \
     sr, total_samples, frequency_recomposition, feature_channels, band_sizes, \
-    filter_banks, bandpass_filters, slices
+    filter_banks, bandpass_filters, slices, frequency_decomposition
 import numpy as np
 from featuresynth.util import device
 import torch
@@ -14,7 +14,7 @@ import argparse
 from torch import nn
 from torch.nn import functional as F
 import time
-
+import pprint
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -62,20 +62,17 @@ if __name__ == '__main__':
     parser.add_argument(
         '--disc-weights',
         required=False)
+    parser.add_argument(
+        '--populate',
+        action='store_true')
     args = parser.parse_args()
 
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
     app.start_in_thread(8888)
 
-    r = TrainingData(
-        path=args.path,
-        pattern=args.pattern,
-        batch_size=args.batch_size,
-        total_samples=total_samples,
-        sr=sr,
-        n_audio_workers=2,
-        n_batch_workers=4,
-        limit_samples=args.limit)
+    ds = DataStore('timit', args.path, pattern=args.pattern, max_workers=2)
+    if args.populate:
+        ds.populate()
 
     feature = None
     bands = None
@@ -304,12 +301,23 @@ if __name__ == '__main__':
     turn = cycle(funcs)
 
 
-    # compute_stds(r)
-    # exit()
 
-    import pprint
     batch_count = 0
-    for samples, features in r.batch_stream():
+    batch_stream = ds.batch_stream(
+        args.batch_size,
+        {'audio': total_samples, 'spectrogram': feature_size},
+        ['audio', 'spectrogram'],
+        {'audio': 1, 'spectrogram': feature_channels}
+    )
+
+
+    def decompose(samples):
+        bands = frequency_decomposition(samples, band_sizes)
+        return \
+            [torch.from_numpy(b.astype(np.float32)).to(device) for b in bands]
+
+    for samples, features in batch_stream:
+        samples = decompose(samples)
         feature = features[0]
         f = next(turn)
         loss, b = f(samples, features)
@@ -319,5 +327,4 @@ if __name__ == '__main__':
         print(batch_count)
         print(f.__name__)
         pprint.pprint(loss)
-        # print(batch_count, f.__name__, loss)
         batch_count += 1
