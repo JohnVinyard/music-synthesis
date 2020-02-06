@@ -6,8 +6,9 @@ import torch
 from torch.nn.init import xavier_normal_, calculate_gain, orthogonal_
 import zounds
 import math
-from .ddsp import oscillator_bank, smooth_upsample2, noise_bank2
+
 from ..util import device
+from ..util.modules import UpsamplingStack, LearnedUpSample, UpSample
 
 
 def weight_norm(x):
@@ -367,80 +368,7 @@ class ChannelGenerator(nn.Module):
         return samples[..., :self.target_size]
 
 
-class DDSPGenerator(nn.Module):
-    def __init__(
-            self,
-            input_size,
-            in_channels,
-            channels,
-            output_sizes,
-            filter_banks,
-            slices,
-            bandpass_filters):
-        super().__init__()
-        self.bandpass_filters = bandpass_filters
-        self.slices = slices
-        self.channels = channels
-        self.output_sizes = output_sizes
-        self.in_channels = in_channels
-        self.input_size = input_size
 
-        self.main = nn.Sequential(
-            nn.Conv1d(256, 128, 1, 1, 0, bias=False),
-            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
-            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
-            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
-        )
-
-        n_osc = 512
-        # number of fft coefficients needed for each window of samples
-        # total_samples / param sample rate / 2
-        noise_shape = (16384 // 64 // 2) + 1
-        self.loudness = nn.Conv1d(128, n_osc, 1, 1, 0, bias=False)
-        self.frequency = nn.Conv1d(128, n_osc, 1, 1, 0, bias=False)
-        self.noise_loudness = nn.Conv1d(128, noise_shape, 1, 1, 0, bias=False)
-
-        # n_osc
-        stops = np.geomspace(20, 11025 / 2, num=n_osc)
-        # n_osc + 1
-        freqs = [0] + list(stops)
-        # n_osc
-        diffs = np.diff(freqs)
-        # n_osc
-        starts = stops - diffs
-
-        self.starts = torch.from_numpy(starts).to(device).float()
-        self.diffs = torch.from_numpy(diffs).to(device).float()
-
-
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'samples' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
-
-    def forward(self, x):
-        x = x.view(-1, self.in_channels, self.input_size)
-        for layer in self.main:
-            x = F.leaky_relu(layer(x), 0.2)
-
-        # oscillator channel loudness
-        l = self.loudness(x) ** 2
-
-        # oscillator channel frequency (constrained within band)
-        f = F.sigmoid(self.frequency(x))  # (batch, osc, time)
-        f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
-
-        # desired frequency response of FIR filter in the frequency domain
-        n_l = self.noise_loudness(x) ** 2
-
-        l = smooth_upsample2(l, size=16384)
-        f = F.upsample(f, size=16384, mode='linear')
-        return oscillator_bank(f, l, 11025), noise_bank2(n_l), l, f, n_l
 
 
 class Generator(nn.Module):

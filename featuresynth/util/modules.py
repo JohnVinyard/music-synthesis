@@ -33,6 +33,39 @@ def normalize(l, scaling=1):
     return l * scaling
 
 
+def least_squares_generator_loss(j):
+    return 0.5 * ((j - 1) ** 2).mean()
+
+
+def least_squares_disc_loss(r_j, f_j):
+    return 0.5 * (((r_j - 1) ** 2).mean() + (f_j ** 2).mean())
+
+
+def zero_grad(*optims):
+    for optim in optims:
+        optim.zero_grad()
+
+
+def set_requires_grad(x, requires_grad):
+    if isinstance(x, nn.Module):
+        x = [x]
+    for item in x:
+        for p in item.parameters():
+            p.requires_grad = requires_grad
+
+
+def freeze(x):
+    set_requires_grad(x, False)
+
+
+def unfreeze(x):
+    set_requires_grad(x, True)
+
+
+def noise(n_examples, noise_dim, device):
+    return torch.FloatTensor(n_examples, noise_dim).normal_(0, 1).to(device)
+
+
 class ToTimeSeries(nn.Module):
     def __init__(self, in_channels, out_channels, out_frames):
         super().__init__()
@@ -71,7 +104,6 @@ class DilatedStack(nn.Module):
         self.kernel_size = kernel_size
         self.channels = channels
         self.in_channels = in_channels
-
 
         layers = []
         for i, d in enumerate(dilations):

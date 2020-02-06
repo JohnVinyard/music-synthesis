@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from torch.nn import functional as F
 
+
 def oscillator_bank(frequency, amplitude, sample_rate):
     """
     frequency and amplitude are (batch, n_oscillators, n_samples)
@@ -41,14 +42,16 @@ def noise_bank2(x):
     # windows
     batch, magnitudes, samples = x.shape
     window_size = (magnitudes - 1) * 2
-    total_samples = window_size * samples
+    hop_size = window_size // 2
+    total_samples = hop_size * samples
 
     # (batch, frames, coeffs, 2)
 
     # create the noise
     noise = torch.FloatTensor(batch, total_samples).uniform_(-1, 1).to(x.device)
     # window the noise
-    noise = noise.unfold(-1, window_size, window_size)
+    noise = F.pad(noise, (0, hop_size))
+    noise = noise.unfold(-1, window_size, hop_size)
     noise_coeffs = torch.rfft(noise, 1, normalized=True)
     # (batch frames, coeffs, 2)
 
@@ -59,15 +62,41 @@ def noise_bank2(x):
     # recover the filtered noise in the time domain
     audio = torch.irfft(
         filtered, 1, normalized=True, signal_sizes=(window_size,))
+    audio = overlap_add(audio[:, None, :, :], apply_window=True)
+    audio = audio[..., :total_samples]
     audio = audio.view(batch, 1, -1)
     return audio
+
+
+from scipy.signal import hann
+
+def np_overlap_add(x, apply_window=True):
+    batch, channels, frames, samples = x.shape
+
+    if apply_window:
+        # window = np.hamming(samples)
+        # window = hann(samples, False)
+        window = np.hamming(samples)
+        x = x * window[None, None, None, :]
+
+    hop_size = samples // 2
+    first_half = x[:, :, :, :hop_size].reshape(batch, channels, -1)
+    second_half = x[:, :, :, hop_size:].reshape(batch, channels, -1)
+    first_half = np.pad(
+        first_half, ((0, 0), (0, 0), (0, hop_size)), mode='constant')
+    second_half = np.pad(
+        second_half, ((0, 0), (0, 0), (hop_size, 0)), mode='constant')
+    output = first_half + second_half
+    return output
 
 
 def overlap_add(x, apply_window=True):
     batch, channels, frames, samples = x.shape
 
     if apply_window:
-        window = torch.hamming_window(samples).to(x.device)
+        window = torch.from_numpy(hann(samples, False)).to(x.device).float()
+        # window = torch.hamming_window(samples, periodic=False).to(x.device)
+        # window = torch.hann_window(samples, periodic=False).to(x.device)
         x = x * window[None, None, None, :]
 
     hop_size = samples // 2
@@ -95,7 +124,7 @@ def smooth_upsample2(x, size):
     hop_size = size // frames
     window_size = hop_size * 2
 
-    window = torch.hamming_window(window_size, periodic=False).to(x.device)
+    window = torch.hamming_window(window_size, periodic=True).to(x.device)
 
     amps = x.view(batch, channels * frames)
     scaled_windows = amps[..., None] * window[None, None, :]
