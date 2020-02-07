@@ -36,7 +36,7 @@ class LowResChannelJudge(nn.Module):
 
         self.feature_embedding = \
             weight_norm(
-                nn.Conv1d(sl.stop - sl.start, channels, 1, 1, 0, bias=False))
+                nn.Conv1d(feature_channels, channels, 1, 1, 0, bias=False))
 
 
         self.learned = nn.Sequential(
@@ -90,7 +90,7 @@ class LowResChannelJudge(nn.Module):
         spectral = F.relu(spectral)
 
         # frequency slice of incoming features
-        features = features[:, self.sl, :]
+        # features = features[:, self.sl, :]
 
         embedded = F.leaky_relu(self.feature_embedding(features), 0.2)
 
@@ -101,9 +101,8 @@ class LowResChannelJudge(nn.Module):
         for layer in self.learned:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
-
+        unconditioned = x
         judgements.append(F.tanh(self.unconditioned(x)))
-
 
         # raw full spectrograms
         x = torch.cat(
@@ -111,7 +110,7 @@ class LowResChannelJudge(nn.Module):
         for layer in self.full:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
-
+        full_spec = x
         x = F.tanh(self.full_judge(x))
         judgements.append(x)
 
@@ -122,16 +121,11 @@ class LowResChannelJudge(nn.Module):
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
+        low_res = x
 
         judgements.append(F.tanh(self.judge(x)))
-
-        return \
-            torch.cat([j.view(batch_size, -1) for j in judgements], dim=1), \
-            features
-
-
-
-
+        j = torch.cat([j.view(batch_size, -1) for j in judgements], dim=1)
+        return j, features, unconditioned, full_spec, low_res
 
 
 class Discriminator(nn.Module):
@@ -159,6 +153,10 @@ class Discriminator(nn.Module):
                                  fb, sl)
               for size, fb, sl in zip(input_sizes, filter_banks, slices)])
 
+        self.unconditioned_judge = nn.Conv1d(channels * 5, 1, 3, 1, 1, bias=False)
+        self.full_spec_judge = nn.Conv1d(channels * 5, 1, 3, 1, 1, bias=False)
+        self.low_res_judge = nn.Conv1d(channels * 5, 1, 1, 1, 0, bias=False)
+
     def initialize_weights(self):
         for name, weight in self.named_parameters():
             if weight.data.dim() > 2:
@@ -183,24 +181,53 @@ class Discriminator(nn.Module):
         batch_size = features.shape[0]
         features = features.view(-1, self.feature_channels, self.feature_size)
 
-        # judgements = []
-        # feat = []
+        judgements = []
+        feat = []
 
-        judgements = {}
-        feat = defaultdict(list)
+        # judgements = {}
+        # feat = defaultdict(list)
+
+        unconditioned = []
+        full_spec = []
+        low_res = []
 
         for layer, band in zip(self.items, bands):
-            j, f = layer(bands[band], features)
-            size = bands[band].shape[-1]
-            judgements[size] = j
-            feat[size].extend(f)
-            # judgements.append(j)
-            # feat.extend(f)
+            j, f, un, full, low = layer(bands[band], features)
+            unconditioned.append(F.avg_pool1d(un, un.shape[-1] // 16))
+            full_spec.append(full)
+            low_res.append(low)
+            # size = bands[band].shape[-1]
+            # judgements[size] = j
+            # feat[size].extend(f)
+            judgements.append(j)
+            feat.extend(f)
 
+        # print('==================================')
+        # for k, v in judgements.items():
+        #     print(k, v.shape)
+        #
+        # print('--------------------------------------')
+        # for k, v in feat.items():
+        #     print(k, v[-1].shape)
         # return \
         #     torch.cat([j.view(batch_size, -1) for j in judgements], dim=1), \
         #     feat
 
+
+        unconditioned = torch.cat(unconditioned, dim=1)
+        u = F.tanh(self.unconditioned_judge(unconditioned))
+        judgements.append(u)
+
+        full_spec = torch.cat(full_spec, dim=1)
+        fs = F.tanh(self.full_spec_judge(full_spec))
+        judgements.append(fs)
+
+        lr = torch.cat(low_res, dim=1)
+        lr = F.tanh(self.low_res_judge(lr))
+        judgements.append(lr)
+
+        judgements = torch.cat(
+            [j.view(batch_size, -1) for j in judgements], dim=-1)
         return judgements, feat
 
 
