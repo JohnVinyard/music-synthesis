@@ -1,6 +1,6 @@
 import zounds
-from featuresynth.generator.full import DDSPGenerator
-from featuresynth.discriminator.full import FilterBankDiscriminator
+from featuresynth.generator.full import MelGanGenerator
+from featuresynth.discriminator.full import FullDiscriminator
 from featuresynth.data import DataStore
 from featuresynth.util.modules import \
     least_squares_disc_loss, least_squares_generator_loss, zero_grad, freeze, \
@@ -16,13 +16,11 @@ ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 feature_size = 64
 batch_size = 4
 
+g = MelGanGenerator(feature_size, feature_channels).initialize_weights().to(device)
+g_optim = Adam(g.parameters(), lr=1e-4, betas=(0.5, 0.9))
 
-g = DDSPGenerator(feature_size, feature_channels) \
-    .initialize_weights().to(device)
-g_optim = Adam(g.parameters(), lr=0.001, betas=(0, 0.9))
-
-d = FilterBankDiscriminator().initialize_weights().to(device)
-d_optim = Adam(d.parameters(), lr=0.001, betas=(0, 0.9))
+d = FullDiscriminator().initialize_weights().to(device)
+d_optim = Adam(d.parameters(), lr=1e-4, betas=(0.5, 0.9))
 
 
 def train_generator(samples, features):
@@ -31,11 +29,10 @@ def train_generator(samples, features):
     unfreeze(g)
 
     fake = g(features)
-    f_features, f_score = d(features, fake)
-    r_features, r_score = d(features, samples)
+    f_features, f_score = d(fake)
+    r_features, r_score = d(samples)
 
-    # loss = least_squares_generator_loss(f_score)
-    loss = 0
+    loss = least_squares_generator_loss(f_score)
     for f_f, r_f in zip(f_features, r_features):
         f_f = f_f / f_f.shape[1]
         r_f = r_f / r_f.shape[1]
@@ -51,15 +48,15 @@ def train_discriminator(samples, features):
     unfreeze(d)
 
     fake = g(features)
-    f_features, f_score = d(features, fake)
-    r_features, r_score = d(features, samples)
+    f_features, f_score = d(fake)
+    r_features, r_score = d(samples)
 
     loss = least_squares_disc_loss(r_score, f_score)
     loss.backward()
     d_optim.step()
     return {'d_loss': loss.item()}
 
-steps = cycle([train_generator])
+steps = cycle([train_discriminator, train_generator])
 
 if __name__ == '__main__':
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
