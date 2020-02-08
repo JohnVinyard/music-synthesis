@@ -11,11 +11,8 @@ from torch.optim import Adam
 from featuresynth.generator import Generator
 from featuresynth.discriminator import Discriminator
 import argparse
-from torch import nn
 from torch.nn import functional as F
 from featuresynth.util.modules import zero_grad, freeze, unfreeze
-import time
-import pprint
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -188,35 +185,6 @@ if __name__ == '__main__':
     d_optim = Adam(disc.parameters(), lr=learning_rate, betas=(0, 0.9))
 
 
-
-    # def zero_grad():
-    #     generator.zero_grad()
-    #     disc.zero_grad()
-    #
-    #
-    # def set_requires_grad(x, requires_grad):
-    #     if isinstance(x, nn.Module):
-    #         x = [x]
-    #     for item in x:
-    #         for p in item.parameters():
-    #             p.requires_grad = requires_grad
-    #
-    #
-    # def freeze(x):
-    #     set_requires_grad(x, False)
-    #
-    #
-    # def unfreeze(x):
-    #     set_requires_grad(x, True)
-
-
-    # def choose_index(disc):
-    #     try:
-    #         return np.random.randint(0, feature_size - disc.nframes)
-    #     except ValueError:
-    #         return 0
-
-
     def train_generator(samples, features):
         zero_grad(d_optim, g_optim)
 
@@ -228,9 +196,9 @@ if __name__ == '__main__':
 
         # generator returns a dictionary of bands
         fake = generator(features)
-        output, fake_features = d(fake, features)
+        output, fake_features = d(fake)
         bands = {s.shape[-1]: s for s in samples}
-        real_output, real_features = d(bands, features)
+        real_output, real_features = d(bands)
 
         loss = (-output).mean()
         for r_f, f_f in zip(real_features, fake_features):
@@ -253,10 +221,10 @@ if __name__ == '__main__':
 
         features = torch.from_numpy(features).to(device)
         fake = generator(features)
-        fake_output, fake_features = disc(fake, features)
+        fake_output, fake_features = disc(fake)
 
         bands = {s.shape[-1]: s for s in samples}
-        real_output, real_features = disc(bands, features)
+        real_output, real_features = disc(bands)
 
         loss = (F.relu(1 - real_output) + F.relu(1 + fake_output)).mean()
         loss.backward()

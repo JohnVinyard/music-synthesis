@@ -49,7 +49,7 @@ class LowResChannelJudge(nn.Module):
         n_layers = int(np.log2(input_size) - np.log2(feature_size))
         for i in range(n_layers):
             full.append(weight_norm(nn.Conv1d(
-                filter_bank_channels + channels if i == 0 else channels,
+                filter_bank_channels if i == 0 else channels,
                 channels,
                 kernel_size=3,
                 stride=2,
@@ -62,7 +62,7 @@ class LowResChannelJudge(nn.Module):
 
         layers = []
         layers.append(weight_norm(nn.Conv1d(
-            filter_bank_channels + channels, channels, 1, 1, 0, bias=False)))
+            filter_bank_channels, channels, 1, 1, 0, bias=False)))
         for i in range(int(np.log2(feature_size))):
             layers.append(weight_norm(nn.Conv1d(
                 channels,
@@ -80,8 +80,8 @@ class LowResChannelJudge(nn.Module):
 
 
 
-    def forward(self, band, features):
-        batch_size = features.shape[0]
+    def forward(self, band):
+        batch_size = band.shape[0]
 
         band = band.view(-1, 1, self.input_size)
 
@@ -89,14 +89,11 @@ class LowResChannelJudge(nn.Module):
         spectral = spectral * torch.abs(self.scale)
         spectral = F.relu(spectral)
 
-        # frequency slice of incoming features
-        # features = features[:, self.sl, :]
-
-        embedded = F.leaky_relu(self.feature_embedding(features), 0.2)
 
         features = []
         judgements = []
 
+        # unconditioned
         x = band
         for layer in self.learned:
             x = F.leaky_relu(layer(x), 0.2)
@@ -104,9 +101,8 @@ class LowResChannelJudge(nn.Module):
         unconditioned = x
         judgements.append(F.tanh(self.unconditioned(x)))
 
-        # raw full spectrograms
-        x = torch.cat(
-            [spectral, F.upsample(embedded, size=spectral.shape[-1])], dim=1)
+        # raw, full spectorgams
+        x = spectral
         for layer in self.full:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
@@ -117,7 +113,7 @@ class LowResChannelJudge(nn.Module):
         # downsampled spectrograms
         kernel = spectral.shape[-1] // self.feature_size
         low_res = F.avg_pool1d(spectral, kernel, kernel)
-        x = torch.cat([low_res, embedded], dim=1)
+        x = low_res
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
@@ -177,42 +173,23 @@ class Discriminator(nn.Module):
         out = self.forward(bands, features)
         print(out.shape)
 
-    def forward(self, bands, features):
-        batch_size = features.shape[0]
-        features = features.view(-1, self.feature_channels, self.feature_size)
+    def forward(self, bands):
+        batch_size = list(bands.values())[0].shape[0]
 
         judgements = []
         feat = []
-
-        # judgements = {}
-        # feat = defaultdict(list)
 
         unconditioned = []
         full_spec = []
         low_res = []
 
         for layer, band in zip(self.items, bands):
-            j, f, un, full, low = layer(bands[band], features)
+            j, f, un, full, low = layer(bands[band])
             unconditioned.append(F.avg_pool1d(un, un.shape[-1] // 16))
             full_spec.append(full)
             low_res.append(low)
-            # size = bands[band].shape[-1]
-            # judgements[size] = j
-            # feat[size].extend(f)
             judgements.append(j)
             feat.extend(f)
-
-        # print('==================================')
-        # for k, v in judgements.items():
-        #     print(k, v.shape)
-        #
-        # print('--------------------------------------')
-        # for k, v in feat.items():
-        #     print(k, v[-1].shape)
-        # return \
-        #     torch.cat([j.view(batch_size, -1) for j in judgements], dim=1), \
-        #     feat
-
 
         unconditioned = torch.cat(unconditioned, dim=1)
         u = F.tanh(self.unconditioned_judge(unconditioned))
