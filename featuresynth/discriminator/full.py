@@ -28,7 +28,11 @@ class FullDiscriminator(nn.Module):
     def initialize_weights(self):
         for name, weight in self.named_parameters():
             if weight.data.dim() > 2:
-                weight.data.normal_(0, 0.02)
+                if 'judge' in name:
+                    xavier_normal_(weight.data, calculate_gain('tanh'))
+                else:
+                    xavier_normal_(
+                        weight.data, calculate_gain('leaky_relu', 0.2))
         return self
 
     def forward(self, x):
@@ -36,6 +40,7 @@ class FullDiscriminator(nn.Module):
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
+        # x = F.tanh(self.judge(x))
         x = self.judge(x)
         return features, x
 
@@ -57,10 +62,9 @@ class FilterBankDiscriminator(nn.Module):
 
         self.fb = [fb]
 
-        self.embedding = nn.Conv1d(256, 128, 3, 1, 1, bias=False)
 
         self.main = nn.Sequential(
-            nn.Conv1d(n_bands + 128, 128, 7, 4, 3, bias=False),
+            nn.Conv1d(n_bands, 128, 7, 4, 3, bias=False),
             nn.Conv1d(128, 256, 7, 4, 3, bias=False),
             nn.Conv1d(256, 512, 7, 4, 3, bias=False),
             nn.Conv1d(512, 1024, 7, 4, 3, bias=False),
@@ -69,7 +73,7 @@ class FilterBankDiscriminator(nn.Module):
         self.judge = nn.Conv1d(1024, 1, 3, 1, 1, bias=False)
 
         self.ds = DilatedStack(
-            n_bands + 128,
+            n_bands,
             channels=128,
             kernel_size=3,
             dilations=[1, 3, 9],
@@ -88,39 +92,27 @@ class FilterBankDiscriminator(nn.Module):
         for name, weight in self.named_parameters():
             if weight.data.dim() > 2:
                 if 'judge' in name:
-                    xavier_normal_(weight.data, calculate_gain('tanh'))
+                    xavier_normal_(weight.data, 1)
                 else:
                     xavier_normal_(
                         weight.data, calculate_gain('leaky_relu', 0.2))
         return self
 
-    def forward(self, features, x):
-        embedded = F.leaky_relu(self.embedding(features), 0.2)
+    def forward(self, x):
 
         features = []
-        with_phase = x = self.filter_bank.forward(x, normalize=False)[...,
-                         :x.shape[-1]]
-        # features.append(with_phase)
-        # with_phase = F.relu(with_phase)
+        with_phase = x = \
+            self.filter_bank.convolve(x)[..., :x.shape[-1]]
+        with_phase = F.relu(with_phase)
+        features.append(with_phase)
+        for layer in self.main:
+            x = F.leaky_relu(layer(x), 0.2)
+            features.append(x)
+        with_phase_j = self.judge(x)
 
-        # x = torch.cat(
-        #     [with_phase, F.upsample(embedded, size=with_phase.shape[-1])],
-        #     dim=1)
-        #
-        #
-        #
-        # for layer in self.main:
-        #     x = F.leaky_relu(layer(x), 0.2)
-        #     features.append(x)
-        # with_phase_j = self.judge(x)
-
-        x = self.filter_bank.temporal_pooling(with_phase, 512, 256)[...,
-            :embedded.shape[-1]]
-        # x = torch.cat([x, embedded], dim=1)
-        # f, x = self.ds.forward(x, return_features=True)
-        # features.extend(f)
-        # x = self.d_judge(x)
-        #
-        # x = torch.cat([with_phase_j, x], dim=1)
-        features.append(x)
+        x = self.filter_bank.temporal_pooling(with_phase, 512, 256)[..., :64]
+        f, x = self.ds.forward(x, return_features=True)
+        features.extend(f)
+        x = self.d_judge(x)
+        x = torch.cat([with_phase_j, x], dim=1)
         return features, x

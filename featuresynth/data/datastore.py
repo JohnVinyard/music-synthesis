@@ -51,6 +51,10 @@ class BaseDataStore(object):
                 start = 0
             # Ensure the segment follows (batch, channels, time) convention
             segment = arr[start: start + feature_length].copy().T[None, ...]
+            if segment.shape[-1] < feature_length:
+                diff = feature_length - segment.shape[-1]
+                segment = np.pad(
+                    segment, ((0, 0), (0, 0), (0, diff)), 'constant')
             return segment.astype(np.float32)
 
     def batch_stream(
