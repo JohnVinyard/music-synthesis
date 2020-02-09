@@ -1,6 +1,6 @@
 import zounds
 from torch.nn import functional as F
-from featuresynth.generator.full import MelGanGenerator, DDSPGenerator
+from featuresynth.generator.full import MelGanGenerator, DDSPGenerator, TwoDimDDSPGenerator
 from featuresynth.discriminator.full import FullDiscriminator, FilterBankDiscriminator
 from featuresynth.data import DataStore
 from featuresynth.util.modules import \
@@ -21,11 +21,12 @@ batch_size = 4
 
 learning_rate = 1e-4
 # g = MelGanGenerator(feature_size, feature_channels).initialize_weights().to(device)
-g = DDSPGenerator(feature_size, feature_channels).initialize_weights().to(device)
+# g = DDSPGenerator(feature_size, feature_channels).initialize_weights().to(device)
+g = TwoDimDDSPGenerator(feature_size, feature_channels).initialize_weights().to(device)
 g_optim = Adam(g.parameters(), lr=learning_rate, betas=(0, 0.9))
 
-# d = FullDiscriminator().initialize_weights().to(device)
-d = FilterBankDiscriminator().initialize_weights().to(device)
+d = FullDiscriminator().initialize_weights().to(device)
+# d = FilterBankDiscriminator().initialize_weights().to(device)
 d_optim = Adam(d.parameters(), lr=learning_rate, betas=(0, 0.9))
 
 feature_loss_scale = 1

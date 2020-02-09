@@ -120,6 +120,128 @@ class MelGanGenerator(nn.Module):
         return x
 
 
+class TwoDimDDSPGenerator(nn.Module):
+    def __init__(self, input_size, in_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.input_size = input_size
+
+        n_osc = 128
+
+        # go from (batch, 1, bins, time) => (batch, 2, n_osc, time)
+        self.main = nn.Sequential(
+            nn.Conv2d(1, 32, (3, 9), (1, 1), (1, 4)),
+            nn.Conv2d(32, 64, (3, 9), (1, 1), (1, 4)),
+            # downsample step
+            nn.Conv2d(64, 64, (3, 9), (2, 1), (1, 4)),
+            nn.Conv2d(64, 32, (3, 9), (1, 1), (1, 4)),
+        )
+
+        self.noise = nn.Sequential(
+
+            # (batch, 32, 128, 64)
+            nn.Conv2d(32, 16, (9, 3), (4, 1), (4, 1)),
+            nn.LeakyReLU(0.2),
+            # (batch, 32, 32, 64)
+
+            nn.Upsample(scale_factor=(1, 4), mode='bilinear'),
+            # (batch, 16, 32, 256)
+
+            nn.Conv2d(16, 16, (5, 3), (2, 1), (2, 1)),
+            nn.LeakyReLU(0.2),
+            # (batch, 16, 16, 256)
+
+            nn.Upsample(scale_factor=(1, 4), mode='bilinear'),
+            # (batch, 16, 16, 1024)
+            nn.Conv2d(16, 17, (16, 3), (1, 1), (0, 1))
+            # (batch, 17, 1, 1024)
+        )
+
+
+        # self.noise = nn.Sequential(
+        #
+        #     # downsample frequency
+        #     # (batch, 32, 128, 64)
+        #     nn.Conv2d(32, 16, (17, 3), (8, 1), (8, 1)),
+        #     nn.LeakyReLU(0.2),
+        #     # (batch, 32, 16, 64)
+        #
+        #     # upsample time
+        #     nn.Upsample(scale_factor=(1, 16), mode='bilinear'),
+        #     # (batch, 16, 16, 1024)
+        #
+        #     nn.Conv2d(16, 16, (17, 3), (8, 1), (8, 1)),
+        #     nn.LeakyReLU(0.2),
+        #     # (batch, 16, 1, 1024)
+        #
+        #     nn.Conv2d(16, 16, (2, 3), (1, 1), (0, 1)),
+        #     nn.LeakyReLU(0.2),
+        #
+        #     nn.Conv2d(16, 17, (3, 3), (1, 1), (1, 1)),
+        #
+        # )
+
+        self.to_params = nn.Conv2d(32, 2, (3, 3), (1, 1), (1, 1))
+
+
+        # n_osc
+        stops = np.geomspace(20, 11025 / 2, num=n_osc)
+        # n_osc + 1
+        freqs = [0] + list(stops)
+        # n_osc
+        diffs = np.diff(freqs)
+        # n_osc
+        starts = stops - diffs
+
+        self.starts = torch.from_numpy(starts).to(device).float()
+        self.diffs = torch.from_numpy(diffs).to(device).float()
+
+    def initialize_weights(self):
+        for name, weight in self.named_parameters():
+            if weight.data.dim() > 2:
+                if 'to_params' in name:
+                    xavier_normal_(weight.data, 1)
+                else:
+                    xavier_normal_(
+                        weight.data, calculate_gain('leaky_relu', 0.2))
+        return self
+
+    def forward(self, x):
+        batch, channels, time = x.shape
+        orig = x
+
+        x = x.view(batch, 1, channels, time)
+
+
+        for layer in self.main:
+            x = F.leaky_relu(layer(x), 0.2)
+
+        pre_params = x
+        x = self.to_params(x)
+        l = x[:, 0, :, :] ** 2
+        f = F.sigmoid(x[:, 1, :, :])
+        f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
+        # l = F.upsample(l, scale_factor=256, mode='linear')
+        l = smooth_upsample2(l, size=x.shape[-1] * 256)
+        # f = F.upsample(f, scale_factor=256, mode='linear')
+        f = smooth_upsample2(f, size=x.shape[-1] * 256)
+
+        # desired frequency response of FIR filter in the frequency domain
+        # n_l = self.noise(pre_params) ** 2
+        # print(pre_params.shape)
+        for layer in self.noise:
+            pre_params = layer(pre_params)
+            # print(pre_params.shape)
+        n_l = pre_params ** 2
+        # print(n_l.shape)
+
+        harmonic = oscillator_bank(f, l, 11025).view(x.shape[0], 1, -1)
+        noise = noise_bank2(n_l.view(batch, 17, -1))
+
+        # print(harmonic.shape, noise.shape)
+        return (harmonic + noise)[:, :, 4096:-4096]
+
+
 class DDSPGenerator(nn.Module):
     def __init__(self, input_size, in_channels):
         super().__init__()
@@ -220,5 +342,5 @@ class DDSPGenerator(nn.Module):
         #     return harmonic, noise, l, f, n_l
         # else:
         #     return normalize(harmonic)
-        x = normalize(harmonic + noise)[:, :, 4096:-4096]
+        x = normalize(harmonic)[:, :, 4096:-4096]
         return x
