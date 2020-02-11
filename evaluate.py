@@ -16,7 +16,7 @@ import numpy as np
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 
 feature_size = 64
-batch_size = 4
+batch_size = 32
 learning_rate = 1e-4
 
 g = MDCTGenerator(feature_channels).initialize_weights().to(device)
@@ -41,10 +41,17 @@ if __name__ == '__main__':
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
     app.start_in_thread(8888)
 
-    batch_stream = ds.batch_stream(batch_size, {
+    feature_spec = {
         'audio': (total_samples, 1),
         'spectrogram': (feature_size, feature_channels)
-    })
+    }
+    overfit = False
+
+    if overfit:
+        batch_stream = cycle([next(ds.batch_stream(1, feature_spec))])
+    else:
+        batch_stream = ds.batch_stream(batch_size, feature_spec)
+
     batch_count = 0
 
     fake = None

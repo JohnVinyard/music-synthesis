@@ -8,11 +8,12 @@ class MDCTDiscriminator(nn.Module):
         super().__init__()
         self.in_channels = in_channels
         self.main = nn.Sequential(
-            nn.Conv1d(in_channels, 512, 3, 1, 1),
-            nn.Conv1d(512, 256, 3, 1, 1),
-            nn.Conv1d(256, 128, 3, 1, 1),
+            nn.Conv1d(in_channels, 512, 7, 1, 3),
+            nn.Conv1d(512, 1024, 7, 2, 3, groups=4),
+            nn.Conv1d(1024, 1024, 7, 2, 3, groups=16),
+            nn.Conv1d(1024, 1024, 7, 2, 3, groups=32),
         )
-        self.judge = nn.Conv1d(128, 1, 3, 1, 1)
+        self.judge = nn.Conv1d(1024, 1, 3, 1, 1)
 
     def initialize_weights(self):
         for name, weight in self.named_parameters():

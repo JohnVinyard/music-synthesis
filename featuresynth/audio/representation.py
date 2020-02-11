@@ -52,6 +52,7 @@ class MDCT(BaseAudioRepresentation):
     def from_audio(cls, samples, samplerate):
         # (batch, time, channels) => (batch, channels, time)
         coeffs = mdct(samples, 512, 256).transpose((0, 2, 1))
+        coeffs /= np.abs(coeffs).max(axis=(1, 2), keepdims=True) + 1e-12
         return cls(coeffs, samplerate)
 
     def to_audio(self):
