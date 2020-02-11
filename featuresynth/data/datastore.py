@@ -58,20 +58,22 @@ class BaseDataStore(object):
             return segment.astype(np.float32)
 
     def batch_stream(
-            self, batch_size, feature_length, features, feature_channels):
+            self, batch_size, feature_spec):
         all_keys = list(self.iter_keys())
         while True:
             batch = defaultdict(list)
             for _ in range(batch_size):
                 key = choice(all_keys)
-                for feature in features:
+                for feature, shape in feature_spec.items():
+                    length, channels = shape
                     batch[feature].append(self._get_data(
                         key,
                         feature,
-                        feature_length[feature],
-                        feature_channels[feature]))
+                        length,
+                        channels))
             finalized = tuple(
-                np.concatenate(batch[feature], axis=0) for feature in features)
+                np.concatenate(batch[feature], axis=0)
+                for feature in feature_spec)
             yield finalized
 
     def _transform_func(self, filename):

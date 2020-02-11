@@ -41,11 +41,10 @@ if __name__ == '__main__':
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
     app.start_in_thread(8888)
 
-    batch_stream = ds.batch_stream(
-        batch_size,
-        {'audio': total_samples, 'spectrogram': feature_size},
-        ['audio', 'spectrogram'],
-        {'audio': 1, 'spectrogram': feature_channels})
+    batch_stream = ds.batch_stream(batch_size, {
+        'audio': (total_samples, 1),
+        'spectrogram': (feature_size, feature_channels)
+    })
     batch_count = 0
 
     fake = None
