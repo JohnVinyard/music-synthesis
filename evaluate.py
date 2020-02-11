@@ -33,8 +33,6 @@ if __name__ == '__main__':
 
     batch_count = 0
 
-    fake = None
-
     for samples, features in batch_stream:
         # normalize samples and features
         samples /= np.abs(samples).max(axis=-1, keepdims=True) + 1e-12

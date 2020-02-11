@@ -125,6 +125,9 @@ class DilatedStack(nn.Module):
                 bias=False))
         self.main = nn.Sequential(*layers)
 
+    def __iter__(self):
+        yield from self.main
+
     def forward(self, x, return_features=False):
         batch_size = x.shape[0]
         x = x.view(batch_size, self.in_channels, -1)
@@ -214,6 +217,9 @@ class UpsamplingStack(nn.Module):
             layers.append(layer_func(i, curr_size, out_size, first, last))
             curr_size = out_size
         self.main = nn.Sequential(*layers)
+
+    def __iter__(self):
+        yield from self.main
 
     def forward(self, x):
         for layer in self.main:
