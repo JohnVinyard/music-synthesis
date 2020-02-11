@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+import zounds
+from ..audio.transform import overlap_add
 
 
 class LappedUpscale(nn.Module):
@@ -10,53 +12,50 @@ class LappedUpscale(nn.Module):
         self.out_channels = out_channels
         self.in_channels = in_channels
         self.stride = kernel_size // 2
+
         self.new_size = kernel_size * 2
-        self.padding_amt = kernel_size // 2
+
         self.linear = nn.Linear(
-            in_channels * kernel_size,
-            out_channels * self.new_size,
-            bias=False)
+            kernel_size * in_channels,
+            self.new_size * out_channels)
         self.linear.weight.data.normal_(0, 1)
 
     def forward(self, x):
-        batch_size = x.shape[0]
-        frames = x.shape[-1]
-        x = x.view(batch_size, self.in_channels, frames)
-        print(x.shape)
-        x = F.pad(x, (self.padding_amt, self.padding_amt))
-        print(x.shape)
+        batch, channels, time = x.shape
+        x = F.pad(x, (0, self.stride))
         x = x.unfold(-1, self.kernel_size, self.stride)
-        # now we have (batch, channels, n_windows, window_size)
-        print(x.shape)
-
-        x = x.permute((0, 2, 1, 3))
-        # now we have (batch, n_windows, channels, window_size)
-        n_windows = x.shape[1]
-        print(x.shape)
-        x = x.contiguous().view(batch_size * n_windows, -1)
-        # now we have (batch * n_windows, channels * window_size)
-        print(x.shape)
+        # (batch, channels, frames, samples)
+        _, _, frames, _ = x.shape
+        x = x.permute((0, 2, 1, 3)).contiguous()
+        # (batch, frames, channels, samples)
+        x = x.view(batch * frames, -1)
         x = self.linear(x)
-        print(x.shape)
-        x = x.view(batch_size, n_windows, self.out_channels, self.new_size)
-        print(x.shape)
+        # (batch * frames, new_channels * new_time)
+        x = x.view(batch, frames, self.out_channels, self.new_size)
+        x = x.permute((0, 2, 1, 3)).contiguous()
+        x = overlap_add(x, apply_window=True)[..., self.stride:-self.stride]
+        return x
 
 
-        #
-        # window = torch.hann_window(self.new_size, periodic=True)
-        # x = x * window[None, None, None, :]
-        # print(x.shape)
-        #
-        # # x = x.fold(2, self.new_size, self.new_size // 2)
+def transpose_convolve_upscale(x, n_layers):
+    kernel = torch.ones((16, 16, 4)).normal_(0, 1)
+    for i in range(n_layers):
+        x = F.conv_transpose1d(x, kernel, stride=2, padding=1)
+    return x
 
 
-
+def lapped_upscale(x, n_layers):
+    l = LappedUpscale(16, 16, 4)
+    for i in range(n_layers):
+        x = l.forward(x)
+    return x
 
 
 if __name__ == '__main__':
-    t = torch.FloatTensor(8, 16, 128).normal_(0, 1)
-    ls = LappedUpscale(16, 16, 4)
-    us = ls(t)
-
-
+    app = zounds.ZoundsApp(globals=globals(), locals=locals())
+    app.start_in_thread(9999)
+    signal = torch.ones(1, 16, 16).normal_(0, 1)
+    tc = transpose_convolve_upscale(signal, 4).data.cpu().numpy()
+    lu = lapped_upscale(signal, 4).data.cpu().numpy()
+    input('waiting...')
 
