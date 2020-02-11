@@ -29,10 +29,6 @@ class BaseGanExperiment(object):
     def audio_representation(self, data, sr):
         raise NotImplementedError()
 
-    @property
-    def overfit(self):
-        return False
-
     def to(self, device):
         self.generator.to(device)
         self.discriminator.to(device)

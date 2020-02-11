@@ -9,10 +9,12 @@ from featuresynth.experiment import MDCTExperiment
 from featuresynth.feature import sr
 from featuresynth.util import device
 
+import argparse
+
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 
 feature_size = 64
-batch_size = 32
+batch_size = 16
 
 experiment = MDCTExperiment().to(device)
 
@@ -22,10 +24,17 @@ steps = cycle([
 ])
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--overfit',
+        help='Should generator and discriminator overfit on a single example?',
+        action='store_true')
+    args = parser.parse_args()
+
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
     app.start_in_thread(8888)
 
-    if experiment.overfit:
+    if args.overfit:
         batch_stream = cycle(
             [next(ds.batch_stream(1, experiment.feature_spec))])
     else:
