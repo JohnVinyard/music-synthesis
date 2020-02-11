@@ -29,7 +29,14 @@ if __name__ == '__main__':
         '--overfit',
         help='Should generator and discriminator overfit on a single example?',
         action='store_true')
+    parser.add_argument(
+        '--resume',
+        help='Load weights for the models before training',
+        action='store_true')
     args = parser.parse_args()
+
+    if args.resume:
+        experiment.resume()
 
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
     app.start_in_thread(8888)
