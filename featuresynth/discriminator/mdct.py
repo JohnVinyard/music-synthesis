@@ -33,3 +33,36 @@ class MDCTDiscriminator(nn.Module):
         x = self.judge(x)
         return features, x
 
+
+class TwoDimMDCTDiscriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.main = nn.Sequential(
+            nn.Conv2d(1, 16, (3, 3), (2, 2), (1, 1)),
+            nn.Conv2d(16, 32, (3, 3), (2, 2), (1, 1)),
+            nn.Conv2d(32, 64, (3, 3), (2, 2), (1, 1)),
+            nn.Conv2d(64, 128, (3, 3), (2, 2), (1, 1)),
+            nn.Conv2d(128, 256, (3, 3), (2, 1), (1, 1)),
+            nn.Conv2d(256, 512, (3, 3), (2, 1), (1, 1)),
+        )
+
+        self.judge = nn.Conv2d(512, 1, (4, 4), (1, 1), (0, 0))
+
+    def initialize_weights(self):
+        for name, weight in self.named_parameters():
+            if weight.data.dim() > 2:
+                if 'judge' in name:
+                    xavier_normal_(weight.data, calculate_gain('tanh'))
+                else:
+                    xavier_normal_(
+                        weight.data, calculate_gain('leaky_relu', 0.2))
+        return self
+
+    def forward(self, x):
+        x = x[:, None, :, :]
+        features = []
+        for layer in self.main:
+            x = F.leaky_relu(layer(x), 0.2)
+            features.append(x)
+        x = self.judge(x)
+        return features, x

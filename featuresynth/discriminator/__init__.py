@@ -1,2 +1,2 @@
 from .discriminator import *
-from .mdct import MDCTDiscriminator
+from .mdct import MDCTDiscriminator, TwoDimMDCTDiscriminator

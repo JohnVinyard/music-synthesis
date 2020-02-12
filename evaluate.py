@@ -13,7 +13,7 @@ import argparse
 
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 
-batch_size = 32
+# batch_size = 32
 
 
 if __name__ == '__main__':
@@ -30,10 +30,16 @@ if __name__ == '__main__':
         '--experiment',
         help='Class name of the experiment to run',
         required=True)
+    parser.add_argument(
+        '--batch-size',
+        help='minibatch size',
+        type=int,
+        default=32)
     args = parser.parse_args()
 
     experiment = getattr(featuresynth.experiment, args.experiment)()
     print('Running:', experiment.__class__)
+    print('Batch Size:', args.batch_size)
     experiment = experiment.to(device)
 
     steps = cycle([
@@ -51,7 +57,7 @@ if __name__ == '__main__':
         batch_stream = cycle(
             [next(ds.batch_stream(1, experiment.feature_spec))])
     else:
-        batch_stream = ds.batch_stream(batch_size, experiment.feature_spec)
+        batch_stream = ds.batch_stream(args.batch_size, experiment.feature_spec)
 
     batch_count = 0
 

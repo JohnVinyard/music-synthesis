@@ -147,30 +147,30 @@ class TwoDimDDSPGenerator(nn.Module):
         # )
 
 
-        # self.noise = nn.Sequential(
-        #
-        #     # downsample frequency
-        #     # (batch, 32, 128, 64)
-        #     nn.Conv2d(32, 16, (17, 3), (8, 1), (8, 1)),
-        #     nn.LeakyReLU(0.2),
-        #     # (batch, 32, 16, 64)
-        #
-        #     # upsample time
-        #     nn.Upsample(scale_factor=(1, 16), mode='bilinear'),
-        #     # (batch, 16, 16, 1024)
-        #
-        #     nn.Conv2d(16, 16, (17, 3), (8, 1), (8, 1)),
-        #     nn.LeakyReLU(0.2),
-        #     # (batch, 16, 1, 1024)
-        #
-        #     nn.Conv2d(16, 16, (2, 3), (1, 1), (0, 1)),
-        #     nn.LeakyReLU(0.2),
-        #
-        #     nn.Conv2d(16, 17, (3, 3), (1, 1), (1, 1)),
-        #
-        # )
+        self.noise = nn.Sequential(
 
-        self.to_params = nn.Conv2d(32, 3, (3, 3), (1, 1), (1, 1))
+            # downsample frequency
+            # (batch, 32, 128, 64)
+            nn.Conv2d(32, 16, (17, 3), (8, 1), (8, 1)),
+            nn.LeakyReLU(0.2),
+            # (batch, 32, 16, 64)
+
+            # upsample time
+            nn.Upsample(scale_factor=(1, 16), mode='bilinear'),
+            # (batch, 16, 16, 1024)
+
+            nn.Conv2d(16, 16, (17, 3), (8, 1), (8, 1)),
+            nn.LeakyReLU(0.2),
+            # (batch, 16, 1, 1024)
+
+            nn.Conv2d(16, 16, (2, 3), (1, 1), (0, 1)),
+            nn.LeakyReLU(0.2),
+
+            nn.Conv2d(16, 17, (3, 3), (1, 1), (1, 1)),
+
+        )
+
+        self.to_params = nn.Conv2d(32, 2, (3, 3), (1, 1), (1, 1))
 
         # self.freqs = nn.Conv2d(32, 1, (3, 3), (1, 1), (1, 1))
         # self.osc_loudness = nn.Conv2d(32, 1, (3, 3), (1, 1), (1, 1))
@@ -283,19 +283,19 @@ class TwoDimDDSPGenerator(nn.Module):
         # desired frequency response of FIR filter in the frequency domain
         # n_l = self.noise(pre_params) ** 2
         # print(pre_params.shape)
-        # for layer in self.noise:
-        #     pre_params = layer(pre_params)
-        #     # print(pre_params.shape)
-        # n_l = pre_params ** 2
+        for layer in self.noise:
+            pre_params = layer(pre_params)
+            # print(pre_params.shape)
+        n_l = pre_params ** 2
         # print(n_l.shape)
 
         # print(nl.shape, self.filtered_noise.shape)
-        nl = x[:, 2, :, :] ** 2
-        nl = smooth_upsample2(nl, size=x.shape[-1] * 256)
-        noise = (nl * self.filtered_noise).sum(dim=1, keepdim=True)
+        # nl = x[:, 2, :, :] ** 2
+        # nl = smooth_upsample2(nl, size=x.shape[-1] * 256)
+        # noise = (nl * self.filtered_noise).sum(dim=1, keepdim=True)
 
         harmonic = oscillator_bank(f, l, 11025).view(x.shape[0], 1, -1)
-        # noise = noise_bank2(n_l.view(batch, 17, -1))
+        noise = noise_bank2(n_l.view(batch, 17, -1))
 
         # print(harmonic.shape, noise.shape)
         return (harmonic + noise)[:, :, 4096:-4096]

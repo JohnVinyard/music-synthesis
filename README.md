@@ -1,7 +1,13 @@
 # TODO
 
-- fft-based resynthesis
-- factor into experiments
-- main training loop
-- try DCT generator with multiplications
-- 
+- understand phase
+- FFT representation
+- sinc layer
+- DDSP experiment in new style
+- run multi-scale experiment for a while
+
+
+# Tools
+- better initialization
+- ~~CLI experiment names~~
+- experiment report

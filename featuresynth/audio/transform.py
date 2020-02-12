@@ -63,8 +63,9 @@ def fft_frequency_decompose(x, min_size):
         sl = coeffs[:, :, :current_size // 2 + 1, :]
         if current_size > min_size:
             mask = make_mask(
-                sl.shape[2], current_size // 4,
-                current_size // 2 + 1)
+                size=sl.shape[2],
+                start=current_size // 4,
+                stop=current_size // 2 + 1)
             sl = sl * mask
         recon = torch.irfft(
             input=sl,
@@ -80,6 +81,7 @@ def fft_frequency_decompose(x, min_size):
 def fft_resample(x, desired_size):
     batch, channels, time = x.shape
     coeffs = torch.rfft(input=x, signal_ndim=1, normalized=True)
+    # (batch, channels, coeffs, 2)
 
     new_coeffs_size = desired_size // 2 + 1
     new_coeffs = torch.zeros(batch, channels, new_coeffs_size, 2).to(x.device)
