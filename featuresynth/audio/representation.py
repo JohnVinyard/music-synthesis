@@ -37,11 +37,15 @@ class RawAudio(BaseAudioRepresentation):
     def from_audio(cls, samples, samplerate):
         return cls(samples, samplerate)
 
+    def _reshape(self):
+        batch, _, samples = self.data.shape
+        return self.data.reshape((batch, samples))
+
     def to_audio(self):
-        return self.data
+        return self._reshape()
 
     def display_features(self):
-        return np.array(self.data[0])
+        return np.array(self._reshape()[0])
 
 
 class MDCT(BaseAudioRepresentation):

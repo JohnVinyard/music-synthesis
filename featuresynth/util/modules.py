@@ -185,11 +185,12 @@ class LearnedUpSample(nn.Module):
             out_channels,
             kernel_size,
             stride=scale_factor,
-            padding=(kernel_size // 2) - 1,
+            padding=(kernel_size - scale_factor) // 2,
             bias=False)
 
     def forward(self, x):
-        return self.activation(self.conv(x))
+        x = self.conv(x)
+        return self.activation(x)
 
 
 class UpsamplingStack(nn.Module):

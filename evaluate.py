@@ -5,7 +5,7 @@ import torch
 import zounds
 
 from featuresynth.data import DataStore
-from featuresynth.experiment import MDCTExperiment
+from featuresynth.experiment import MultiScaleExperiment
 from featuresynth.feature import sr
 from featuresynth.util import device
 
@@ -13,10 +13,9 @@ import argparse
 
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 
-feature_size = 64
-batch_size = 16
+batch_size = 8
 
-experiment = MDCTExperiment().to(device)
+experiment = MultiScaleExperiment().to(device)
 
 steps = cycle([
     experiment.discriminator_trainer,

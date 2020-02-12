@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 import zounds
-from ..audio.transform import overlap_add
+from ..generator.ddsp import overlap_add
 
 
 class LappedUpscale(nn.Module):
@@ -18,7 +18,6 @@ class LappedUpscale(nn.Module):
         self.linear = nn.Linear(
             kernel_size * in_channels,
             self.new_size * out_channels)
-        self.linear.weight.data.normal_(0, 1)
 
     def forward(self, x):
         batch, channels, time = x.shape
@@ -57,5 +56,9 @@ if __name__ == '__main__':
     signal = torch.ones(1, 16, 16).normal_(0, 1)
     tc = transpose_convolve_upscale(signal, 4).data.cpu().numpy()
     lu = lapped_upscale(signal, 4).data.cpu().numpy()
+
+    print(tc.shape)
+    print(lu.shape)
+
     input('waiting...')
 

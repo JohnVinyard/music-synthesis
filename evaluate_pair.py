@@ -25,11 +25,6 @@ if __name__ == '__main__':
         '--pattern',
         default='*.wav')
     parser.add_argument(
-        '--limit',
-        type=int,
-        required=False,
-        default=None)
-    parser.add_argument(
         '--batch-size',
         type=int,
         required=False,
@@ -303,12 +298,12 @@ if __name__ == '__main__':
 
 
     batch_count = 0
-    batch_stream = ds.batch_stream(
-        args.batch_size,
-        {'audio': total_samples, 'spectrogram': feature_size},
-        ['audio', 'spectrogram'],
-        {'audio': 1, 'spectrogram': feature_channels}
-    )
+    feature_spec = {
+        'audio': (total_samples, 1),
+        'spectrogram': (feature_size, feature_channels)
+    }
+    batch_stream = cycle([next(ds.batch_stream(1, feature_spec))])
+    # batch_stream = ds.batch_stream(args.batch_size, feature_spec)
 
 
     def decompose(samples):

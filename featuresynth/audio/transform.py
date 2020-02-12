@@ -51,7 +51,7 @@ def fft_frequency_decompose(x, min_size):
     coeffs = torch.rfft(input=x, signal_ndim=1, normalized=True)
 
     def make_mask(size, start, stop):
-        mask = torch.zeros(size)
+        mask = torch.zeros(size).to(x.device)
         mask[start:stop] = 1
         return mask[None, None, :, None]
 
@@ -82,7 +82,7 @@ def fft_resample(x, desired_size):
     coeffs = torch.rfft(input=x, signal_ndim=1, normalized=True)
 
     new_coeffs_size = desired_size // 2 + 1
-    new_coeffs = torch.zeros(batch, channels, new_coeffs_size, 2)
+    new_coeffs = torch.zeros(batch, channels, new_coeffs_size, 2).to(x.device)
     new_coeffs[:, :, :coeffs.shape[2], :] = coeffs
 
     samples = torch.irfft(

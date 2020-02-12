@@ -11,6 +11,7 @@ from torch.nn.utils import weight_norm
 def weight_norm(x):
     return x
 
+
 class FullDiscriminator(nn.Module):
     def __init__(self):
         super().__init__()
@@ -29,7 +30,7 @@ class FullDiscriminator(nn.Module):
         for name, weight in self.named_parameters():
             if weight.data.dim() > 2:
                 if 'judge' in name:
-                    xavier_normal_(weight.data, calculate_gain('tanh'))
+                    xavier_normal_(weight.data, 1)
                 else:
                     xavier_normal_(
                         weight.data, calculate_gain('leaky_relu', 0.2))
@@ -40,7 +41,6 @@ class FullDiscriminator(nn.Module):
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
-        # x = F.tanh(self.judge(x))
         x = self.judge(x)
         return features, x
 
@@ -61,7 +61,6 @@ class FilterBankDiscriminator(nn.Module):
             a_weighting=False)
 
         self.fb = [fb]
-
 
         self.main = nn.Sequential(
             nn.Conv1d(n_bands, 128, 7, 4, 3, bias=False),
@@ -102,15 +101,15 @@ class FilterBankDiscriminator(nn.Module):
 
         features = []
         with_phase = x = \
-            self.filter_bank.convolve(x)[..., :x.shape[-1]]
+            self.filter_bank.forward(x, normalize=False)[...,
+            :x.shape[-1]].contiguous()
         with_phase = F.relu(with_phase)
-        features.append(with_phase)
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
         with_phase_j = self.judge(x)
-
-        x = self.filter_bank.temporal_pooling(with_phase, 512, 256)[..., :64]
+        x = self.filter_bank.temporal_pooling(with_phase, 512, 256)[...,
+            :64].contiguous()
         f, x = self.ds.forward(x, return_features=True)
         features.extend(f)
         x = self.d_judge(x)

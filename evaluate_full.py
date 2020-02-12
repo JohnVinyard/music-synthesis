@@ -29,7 +29,7 @@ d = FullDiscriminator().initialize_weights().to(device)
 # d = FilterBankDiscriminator().initialize_weights().to(device)
 d_optim = Adam(d.parameters(), lr=learning_rate, betas=(0, 0.9))
 
-feature_loss_scale = 1
+feature_loss_scale = 10
 
 def train_generator(samples, features):
     zero_grad(g_optim, d_optim)
@@ -41,11 +41,9 @@ def train_generator(samples, features):
     r_features, r_score = d(samples)
 
     loss = least_squares_generator_loss(f_score)
-    # loss = (-f_score).mean()
-    # loss = 0
     feature_loss = 0
     for f_f, r_f in zip(f_features, r_features):
-        feature_loss += torch.abs(f_f - r_f).sum() / f_f.contiguous().view(batch_size, -1).shape[-1]
+        feature_loss += torch.abs(f_f - r_f).sum() / f_f.view(batch_size, -1).contiguous().shape[-1 ]
     loss = loss + (feature_loss_scale * feature_loss)
     loss.backward()
     g_optim.step()
@@ -62,7 +60,6 @@ def train_discriminator(samples, features):
     r_features, r_score = d(samples)
 
     loss = least_squares_disc_loss(r_score, f_score)
-    # loss = (F.relu(1 - r_score) + F.relu(1 + f_score)).mean()
     loss.backward()
     d_optim.step()
     return {'d_loss': loss.item()}
@@ -93,10 +90,10 @@ if __name__ == '__main__':
         return samples.pad_with_silence()
 
     def fake_spec():
-        return spectrogram(fake_audio())
+        return zounds.log_modulus(spectrogram(fake_audio()) * 100)
 
     def r_spec():
-        return spectrogram(real_audio)
+        return zounds.log_modulus(spectrogram(real_audio) * 100)
 
     for samples, features in batch_stream:
 

@@ -70,6 +70,7 @@ def noise_bank2(x):
 
 from scipy.signal import hann
 
+
 def np_overlap_add(x, apply_window=True):
     batch, channels, frames, samples = x.shape
 
