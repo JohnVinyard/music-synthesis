@@ -1,5 +1,5 @@
 from torch import nn
-from ..util.modules import LearnedUpSample, DilatedStack
+from ..util.modules import LearnedUpSample, DilatedStack, UpSample
 from ..audio.transform import fft_frequency_recompose
 from torch.nn.init import xavier_normal_, calculate_gain
 from torch.nn import functional as F
@@ -12,10 +12,10 @@ class ChannelGenerator(nn.Module):
         self.scale_factors = scale_factors
         layers = []
         for i in range(len(scale_factors)):
-            layers.append(LearnedUpSample(
+            layers.append(UpSample(
                 in_channels=channels[i],
                 out_channels=channels[i + 1],
-                kernel_size=scale_factors[i] * 2,
+                kernel_size=scale_factors[i] * 2 + 1,
                 scale_factor=scale_factors[i],
                 activation=lambda x: F.leaky_relu(x, 0.2)))
             layers.append(DilatedStack(
