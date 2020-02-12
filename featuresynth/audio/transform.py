@@ -78,14 +78,19 @@ def fft_frequency_decompose(x, min_size):
     return output
 
 
-def fft_resample(x, desired_size):
+def fft_resample(x, desired_size, is_lowest_band):
     batch, channels, time = x.shape
     coeffs = torch.rfft(input=x, signal_ndim=1, normalized=True)
     # (batch, channels, coeffs, 2)
+    n_coeffs = coeffs.shape[2]
 
     new_coeffs_size = desired_size // 2 + 1
     new_coeffs = torch.zeros(batch, channels, new_coeffs_size, 2).to(x.device)
-    new_coeffs[:, :, :coeffs.shape[2], :] = coeffs
+    if is_lowest_band:
+        new_coeffs[:, :, :n_coeffs, :] = coeffs
+    else:
+        new_coeffs[:, :, n_coeffs // 2:n_coeffs, :] = coeffs[:, :, n_coeffs // 2:, :]
+
 
     samples = torch.irfft(
         input=new_coeffs,
@@ -97,8 +102,9 @@ def fft_resample(x, desired_size):
 
 def fft_frequency_recompose(d, desired_size):
     bands = []
-    for band in d.values():
-        bands.append(fft_resample(band, desired_size))
+    first_band = min(d.keys())
+    for size, band in d.items():
+        bands.append(fft_resample(band, desired_size, size == first_band))
     return sum(bands)
 
 if __name__ == '__main__':
@@ -110,13 +116,16 @@ if __name__ == '__main__':
     noise = synth.synthesize(sr.frequency * 16385)
     signal = torch.from_numpy(noise).view(1, 1, 16384).float()
 
+    rs = fft_resample(signal, 16384, is_lowest_band=False)
+    rs = zounds.AudioSamples(rs.data.cpu().numpy().squeeze(), sr)
+
     bands = fft_frequency_decompose(signal, 512)
     recon = {}
 
     for k, v in bands.items():
         print(k, v.shape)
         recon[k] = zounds.AudioSamples(
-            fft_resample(v, 16384).data.cpu().numpy().squeeze(), sr)
+            fft_resample(v, 16384, k ==512).data.cpu().numpy().squeeze(), sr)
 
     r = fft_frequency_recompose(bands, 16384)
     r = zounds.AudioSamples(r.data.cpu().numpy().squeeze(), sr)
