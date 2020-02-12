@@ -5,7 +5,7 @@ import torch
 import zounds
 
 from featuresynth.data import DataStore
-from featuresynth.experiment import MultiScaleExperiment
+import featuresynth.experiment
 from featuresynth.feature import sr
 from featuresynth.util import device
 
@@ -13,14 +13,8 @@ import argparse
 
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 
-batch_size = 8
+batch_size = 32
 
-experiment = MultiScaleExperiment().to(device)
-
-steps = cycle([
-    experiment.discriminator_trainer,
-    experiment.generator_trainer
-])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -32,7 +26,20 @@ if __name__ == '__main__':
         '--resume',
         help='Load weights for the models before training',
         action='store_true')
+    parser.add_argument(
+        '--experiment',
+        help='Class name of the experiment to run',
+        required=True)
     args = parser.parse_args()
+
+    experiment = getattr(featuresynth.experiment, args.experiment)()
+    print('Running:', experiment.__class__)
+    experiment = experiment.to(device)
+
+    steps = cycle([
+        experiment.discriminator_trainer,
+        experiment.generator_trainer
+    ])
 
     if args.resume:
         experiment.resume()
