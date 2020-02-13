@@ -120,17 +120,17 @@ class FilterBankDiscriminator(nn.Module):
         features = []
         judgements = []
 
-        # f, j = self.full_resolution(x)
-        # features.extend(f)
-        # judgements.append(j)
+        f, j = self.full_resolution(x)
+        features.extend(f)
+        judgements.append(j)
 
         f, j = self.medium_res(x)
         features.extend(f)
         judgements.append(j)
 
-        # f, j = self.low_res(x)
-        # features.extend(f)
-        # judgements.append(j)
-
+        f, j = self.low_res(x)
+        features.extend(f)
+        judgements.append(j)
+    
         x = torch.cat([j.view(batch, -1) for j in judgements], dim=-1)
         return features, x
