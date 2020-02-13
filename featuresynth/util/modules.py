@@ -259,6 +259,10 @@ class DownsamplingStack(nn.Module):
     def __iter__(self):
         yield from self.main
 
+    @property
+    def out_channels(self):
+        return self.main[-1].out_channels
+
     def forward(self, x):
         for layer in self.main:
             x = self.activation(layer(x))

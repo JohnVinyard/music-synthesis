@@ -1,60 +1,38 @@
 import zounds
-import numpy as np
 from featuresynth.data import DataStore
+from zounds.learn import SincLayer
+import torch
+from torch.nn import functional as F
+from torch import nn
+import math
 
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
-batch_stream = ds.batch_stream(
-        4,
-        {'audio': 16384, 'spectrogram': 64},
-        ['audio', 'spectrogram'],
-        {'audio': 1, 'spectrogram': 256})
-
-def overlap_add(x):
-    win_size = x.shape[-1]
-    half_win = win_size // 2
-    a = x[..., :half_win]
-    b = x[..., half_win:]
-
-    def pad_values(axis, value):
-        padding = [(0, 0) for _ in range(x.ndim)]
-        padding[axis] = value
-        return padding
-
-    a = np.pad(a, pad_values(-2, (0, 1)), mode='constant')
-    b = np.pad(b, pad_values(-2, (1, 0)), mode='constant')
-    lapped = a + b
-    lapped = lapped.reshape(x.shape[0], -1)
-    lapped = lapped[..., :-half_win]
-    return lapped
+batch_stream = ds.batch_stream(1, {
+    'audio': (16384, 1),
+    'spectrogram': (64, 256)
+})
 
 if __name__ == '__main__':
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
-    app.start_in_thread(8888)
+    app.start_in_thread(9999)
 
     sr = zounds.SR11025()
-    synth = zounds.SineSynthesizer(sr)
+    samples, features = next(batch_stream)
+    orig = zounds.AudioSamples(samples.squeeze(), sr)
+    samples = torch.from_numpy(samples).float()
 
-    # make two audio files and group into a batch
-    # a1 = synth.synthesize(sr.frequency * 16384, [440])
-    # a2 = synth.synthesize(sr.frequency * 16384, [880])
-    # batch = np.concatenate([a1[None, ...], a2[None, ...]], axis=0)
-    batch, _ = next(batch_stream)
-    batch = batch.squeeze()
+    scale = zounds.MelScale(zounds.FrequencyBand(20, sr.nyquist), 128)
+    # sinc = SincLayer(scale, 257, sr)
+    sinc = zounds.learn.FilterBank(
+        sr, 512, scale, 0.9, normalize_filters=True, a_weighting=False)
 
-    # perform a sliding window
-    batch = np.pad(batch, ((0, 0), (0, 256)), mode='constant')
-    batch = zounds.nputil.sliding_window(batch, (batch.shape[0], 512), (batch.shape[0], 256)).transpose(1, 0, 2)
+    spec = sinc.convolve(samples)
+    recon = sinc.transposed_convolve(spec)
+    ds = F.avg_pool1d(F.relu(spec), 512, 256, 256)
 
-    # analyze
-    coeffs = zounds.spectral.functional.mdct(batch)
-
-    # synthesize
-    recon = zounds.spectral.functional.imdct(coeffs)
-    recon = overlap_add(recon)
-
-    r1 = zounds.AudioSamples(recon[0], sr).pad_with_silence()
-    r2 = zounds.AudioSamples(recon[1], sr).pad_with_silence()
-    r3 = zounds.AudioSamples(recon[2], sr).pad_with_silence()
-    r4 = zounds.AudioSamples(recon[3], sr).pad_with_silence()
-
+    spec = spec.data.cpu().numpy().squeeze()
+    ds = ds.data.cpu().numpy().squeeze()
+    fb = sinc.filter_bank.data.cpu().numpy().squeeze()
+    recon = zounds.AudioSamples(recon.data.cpu().numpy().squeeze(), sr)
+    recon /= recon.max()
     input('Waiting...')
