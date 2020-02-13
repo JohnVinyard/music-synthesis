@@ -1,3 +1,4 @@
 from .discriminator import *
 from .mdct import MDCTDiscriminator, TwoDimMDCTDiscriminator
-from .filterbank import FilterBankDiscriminator
+from .filterbank import \
+    FilterBankDiscriminator, LargeReceptiveFieldFilterBankDiscriminator
