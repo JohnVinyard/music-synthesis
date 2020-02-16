@@ -5,6 +5,52 @@ import torch
 from ..util.modules import LowResSpectrogramDiscriminator
 
 
+class LowResFilterBankDiscriminator(nn.Module):
+    def __init__(self, filter_bank):
+        super().__init__()
+        self._filter_bank = [filter_bank]
+
+        self.low_res = LowResSpectrogramDiscriminator(
+            freq_bins=64,
+            time_steps=64,
+            n_judgements=8,
+            kernel_size=9,
+            max_channels=1024)
+
+    @property
+    def filter_bank(self):
+        return self._filter_bank[0]
+
+    def to(self, device):
+        self.filter_bank.to(device)
+        return super().to(device)
+
+    def initialize_weights(self):
+        for name, weight in self.named_parameters():
+            if weight.data.dim() > 2:
+                if 'judge' in name:
+                    xavier_normal_(weight.data, 1)
+                else:
+                    xavier_normal_(
+                        weight.data, calculate_gain('leaky_relu', 0.2))
+        return self
+
+    def forward(self, x):
+        batch = x.shape[0]
+
+        x = self.filter_bank.convolve(x)
+
+        features = []
+        judgements = []
+
+        f, j = self.low_res(x)
+        features.extend(f)
+        judgements.append(j)
+
+        x = torch.cat([j.view(batch, -1) for j in judgements], dim=-1)
+        return features, x
+
+
 class LargeReceptiveFieldFilterBankDiscriminator(nn.Module):
     def __init__(self, filter_bank):
         super().__init__()

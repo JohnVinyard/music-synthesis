@@ -317,3 +317,44 @@ class LowResSpectrogramDiscriminator(nn.Module):
             features.append(low_res)
         j = self.judge(low_res)
         return features, j
+
+
+class ResidualAtom(nn.Module):
+    def __init__(self, channels, dilation):
+        super().__init__()
+        self.dilation = dilation
+        self.channels = channels
+        padding = dilation
+        self.main = nn.Sequential(
+            nn.Conv1d(
+                channels,
+                channels,
+                3,
+                1,
+                dilation=dilation,
+                padding=padding),
+            nn.Conv1d(channels, channels, 3, 1, 1)
+        )
+
+    def forward(self, x):
+        orig = x
+        for layer in self.main:
+            x = F.leaky_relu(layer(x), 0.2)
+        return orig + x
+
+
+class ResidualStack(nn.Module):
+    def __init__(self, channels, dilations):
+        super().__init__()
+        self.dilations = dilations
+        self.channels = channels
+        self.main = nn.Sequential(
+            ResidualAtom(channels, 1),
+            ResidualAtom(channels, 3),
+            ResidualAtom(channels, 9),
+        )
+
+    def forward(self, x):
+        for layer in self.main:
+            x = layer(x)
+        return x
