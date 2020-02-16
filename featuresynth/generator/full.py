@@ -1,22 +1,19 @@
 import numpy as np
 import torch
+import zounds
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.init import xavier_normal_, calculate_gain
+from torch.nn.utils import weight_norm
 
 from .ddsp import oscillator_bank, smooth_upsample2, noise_bank2
-from ..util import device, LappedUpscale
-from ..util.modules import DilatedStack, normalize, UpsamplingStack, \
-    LearnedUpSample, UpSample
-from torch.nn.utils import weight_norm
-import zounds
+from ..util import device
+from ..util.modules import normalize, UpsamplingStack, \
+    UpSample, ResidualStack
 
 
 def weight_norm(x):
     return x
-
-
-
 
 
 class MelGanGenerator(nn.Module):
