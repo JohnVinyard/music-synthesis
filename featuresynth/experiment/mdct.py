@@ -4,7 +4,7 @@ from ..feature import feature_channels
 from ..generator import \
     MDCTGenerator, TwoDimMDCTGenerator, UnconditionedGenerator
 
-from ..util.modules import least_squares_disc_loss, least_squares_generator_loss
+from ..loss import mel_gan_disc_loss, mel_gan_gen_loss
 
 from .experiment import Experiment
 
@@ -17,8 +17,8 @@ class MDCTExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=64,
             audio_repr_class=MDCT,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
 
 
 class TwoDimMDCTExperiment(Experiment):
@@ -38,8 +38,8 @@ class TwoDimMDCTExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=64,
             audio_repr_class=MDCT,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
 
 
 class TwoDimMDCTDiscriminatorExperiment(Experiment):
@@ -60,8 +60,8 @@ class TwoDimMDCTDiscriminatorExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=64,
             audio_repr_class=MDCT,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
 
 
 class FullTwoDimMDCTDiscriminatorExperiment(Experiment):
@@ -84,8 +84,8 @@ class FullTwoDimMDCTDiscriminatorExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=64,
             audio_repr_class=MDCT,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
 
 
 class UnconditionedGeneratorExperiment(Experiment):
@@ -114,5 +114,5 @@ class UnconditionedGeneratorExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=64,
             audio_repr_class=MDCT,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)

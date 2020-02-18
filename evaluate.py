@@ -13,8 +13,6 @@ import argparse
 
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 
-# batch_size = 32
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -40,6 +38,9 @@ if __name__ == '__main__':
     experiment = getattr(featuresynth.experiment, args.experiment)()
     print('Running:', experiment.__class__)
     print('Batch Size:', args.batch_size)
+
+    torch.backends.cudnn.benchmark = True
+
     experiment = experiment.to(device)
 
     steps = cycle([

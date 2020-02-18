@@ -4,8 +4,8 @@ from ..discriminator import \
     LowResFilterBankDiscriminator
 from ..generator import FilterBankGenerator, ResidualStackFilterBankGenerator
 from .experiment import Experiment
-from ..util.modules import least_squares_disc_loss, least_squares_generator_loss
 from ..feature import sr
+from ..loss import mel_gan_gen_loss, mel_gan_disc_loss
 import zounds
 
 scale = zounds.MelScale(zounds.FrequencyBand(20, sr.nyquist), 128)
@@ -34,8 +34,8 @@ class LowResFilterBankExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
 
 
 class ResidualStackFilterBankExperiment(Experiment):
@@ -51,8 +51,8 @@ class ResidualStackFilterBankExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
 
 
 class LargeReceptiveFieldFilterBankExperiment(Experiment):
@@ -71,8 +71,8 @@ class LargeReceptiveFieldFilterBankExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
 
 
 class FilterBankExperiment(Experiment):
@@ -94,5 +94,5 @@ class FilterBankExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,
-            generator_loss=least_squares_generator_loss,
-            discriminator_loss=least_squares_disc_loss)
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)

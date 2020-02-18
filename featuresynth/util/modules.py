@@ -34,20 +34,7 @@ def normalize(l, scaling=1):
     return l * scaling
 
 
-def least_squares_generator_loss(j):
-    return 0.5 * ((j - 1) ** 2).mean()
 
-
-def hinge_generator_loss(j):
-    return (-j).mea()
-
-
-def least_squares_disc_loss(r_j, f_j):
-    return 0.5 * (((r_j - 1) ** 2).mean() + (f_j ** 2).mean())
-
-
-def hinge_discriminator_loss(r_j, f_j):
-    return (F.relu(1 - r_j) + F.relu(1 + f_j)).mean()
 
 
 def zero_grad(*optims):

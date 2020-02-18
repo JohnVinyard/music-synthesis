@@ -189,24 +189,21 @@ class FilterBankDiscriminator(nn.Module):
         return features, x
 
     def forward(self, x):
-        batch = x.shape[0]
-
         x = self.filter_bank.convolve(x)
 
         features = []
         judgements = []
 
         f, j = self.full_resolution(x)
-        features.extend(f)
+        features.append(f)
         judgements.append(j)
 
         f, j = self.medium_res(x)
-        features.extend(f)
+        features.append(f)
         judgements.append(j)
 
         f, j = self.low_res(x)
-        features.extend(f)
+        features.append(f)
         judgements.append(j)
 
-        x = torch.cat([j.view(batch, -1) for j in judgements], dim=-1)
-        return features, x
+        return features, judgements
