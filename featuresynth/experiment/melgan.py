@@ -7,6 +7,11 @@ from ..loss import mel_gan_disc_loss, mel_gan_gen_loss
 
 
 class MultiScaleMelGanExperiment(Experiment):
+    """
+    This produces pretty good sounding audio after about 12 hours, but still.
+    The speech sounds realistic, but is hard to understand.  No audible phase
+    issues.
+    """
     def __init__(self):
         feature_size = 64
         super().__init__(

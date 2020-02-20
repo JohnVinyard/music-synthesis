@@ -18,7 +18,7 @@ Things to try:
 
 - larger receptive field in discriminator - Less long range coherence
 - residual blocks in generator - Still doesn't converge to meaningful speech
-- just low resolution
+- just low resolution - this results in more long ran
 - max pooling instead of average pooling in discriminator
 - different padding (reflection, replication)
 - conditioned discriminator
@@ -78,12 +78,13 @@ class LargeReceptiveFieldFilterBankExperiment(Experiment):
 class FilterBankExperiment(Experiment):
     """
     This is probably the best audio quality yet.  The audio is relatively
-    crisp, phase is mostly coherent and spectrograms are indistinguishable from
-    real speech.
+    crisp, spectrograms are indistinguishable from real speech, although they
+    are hard to understand.
 
-    There is almost no long-term coherence, however, and the generator produces
-    realistic babbling without accurately reproducing the speech from the
-    spectrograms.
+    There are definite phase issues here and there after 12 hours.
+
+    Overall, the texture of the speech is more realistic than what's produced
+    by the basic MelGAN setup.
     """
 
     def __init__(self):

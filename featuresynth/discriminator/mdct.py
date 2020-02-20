@@ -50,25 +50,22 @@ class MDCTDiscriminator(nn.Module):
         return features, j
 
     def forward(self, x):
-        batch = x.shape[0]
-
         features = []
         judgements = []
 
         f, j = self.med_res(x)
-        features.extend(f)
+        features.append(f)
         judgements.append(j)
 
         f, j = self.low_res(x)
-        features.extend(f)
+        features.append(f)
         judgements.append(j)
 
         f, j = self.full_resolution(x)
-        features.extend(f)
+        features.append(f)
         judgements.append(j)
 
-        j = torch.cat([j.view(batch, -1) for j in judgements], dim=-1)
-        return features, j
+        return features, judgements
 
 
 class TwoDimMDCTDiscriminator(nn.Module):
