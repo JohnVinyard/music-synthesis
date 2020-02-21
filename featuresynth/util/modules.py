@@ -251,10 +251,15 @@ class DownsamplingStack(nn.Module):
     def out_channels(self):
         return self.main[-1].out_channels
 
-    def forward(self, x):
+    def forward(self, x, return_features=False):
+        features = []
         for layer in self.main:
             x = self.activation(layer(x))
-        return x
+            features.append(x)
+        if return_features:
+            return features, x
+        else:
+            return x
 
 
 class LowResSpectrogramDiscriminator(nn.Module):

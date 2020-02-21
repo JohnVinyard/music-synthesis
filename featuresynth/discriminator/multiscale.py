@@ -1,8 +1,45 @@
 from torch import nn
 from ..audio.transform import fft_frequency_decompose
+from ..util.modules import DownsamplingStack
 from torch.nn.init import xavier_normal_, calculate_gain
 from torch.nn import functional as F
 import torch
+
+
+class STFTDiscriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.channels = [256, 512, 1024, 2048]
+        self.main = DownsamplingStack(
+            64,
+            8,
+            2,
+            layer_func=self._build_layer,
+            activation=lambda x: F.leaky_relu(x, 0.2))
+        self.judge = nn.Conv1d(self.channels[-1], 1, 7, 1, 3)
+
+    def _build_layer(self, i, curr_size, out_size, first, last):
+        return nn.Conv1d(
+            self.channels[i],
+            self.channels[i + 1],
+            7,
+            1,
+            3)
+
+    def forward(self, x):
+        batch, channels, time = x.shape
+        x = torch.stft(
+            x.view(batch, time),
+            frame_length=512,
+            hop=256,
+            fft_size=512,
+            normalized=True,
+            pad_end=256)
+        x = torch.abs(x[:, :, 1:, 0])
+        x = x.permute(0, 2, 1).contiguous()
+        features, x = self.main(x, return_features=True)
+        x = self.judge(x)
+        return features, [x]
 
 
 class ChannelDiscriminator(nn.Module):
@@ -79,9 +116,40 @@ class MultiScaleDiscriminator(nn.Module):
 
         for size, layer in self.channel_discs.items():
             f, x = layer(bands[size])
-            features.extend(f)
+            features.append(f)
             channels.append(x)
 
         x = torch.cat(channels, dim=1)
         x = self.judge(x)
-        return features, x
+        return features, [x]
+
+
+class MultiScaleMultiResDiscriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.multiscale = MultiScaleDiscriminator()
+        self.low_res = STFTDiscriminator()
+
+    def initialize_weights(self):
+        for name, weight in self.named_parameters():
+            if weight.data.dim() > 2:
+                if 'judge' in name:
+                    xavier_normal_(weight.data, 1)
+                else:
+                    xavier_normal_(
+                        weight.data, calculate_gain('leaky_relu', 0.2))
+        return self
+
+    def forward(self, x):
+        features = []
+        judgements = []
+
+        f, j = self.multiscale(x)
+        features.extend(f)
+        judgements.extend(j)
+
+        f, j = self.low_res(x)
+        features.append(f)
+        judgements.extend(j)
+
+        return features, judgements

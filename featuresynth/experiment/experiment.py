@@ -39,6 +39,20 @@ class BaseGanExperiment(object):
         self.discriminator.to(device)
         return self
 
+    def report(self, n):
+        """
+        Produce an HTML report displaying N examples that each include:
+            - real audio
+            - real stft
+            - conditioning feature
+            - generated audio
+            - generated stft
+
+        These files are saved to a local directory, or uploaded to an s3
+        bucket for public access
+        """
+        raise NotImplementedError()
+
 
 class Experiment(BaseGanExperiment):
     def __init__(

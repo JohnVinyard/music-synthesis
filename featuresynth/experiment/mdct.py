@@ -2,7 +2,8 @@ from ..audio import MDCT
 from ..discriminator import MDCTDiscriminator, TwoDimMDCTDiscriminator
 from ..feature import feature_channels
 from ..generator import \
-    MDCTGenerator, TwoDimMDCTGenerator, UnconditionedGenerator
+    MDCTGenerator, TwoDimMDCTGenerator, UnconditionedGenerator, \
+    GroupedMDCTGenerator
 
 from ..loss import mel_gan_disc_loss, mel_gan_gen_loss
 
@@ -10,9 +11,26 @@ from .experiment import Experiment
 
 
 class MDCTExperiment(Experiment):
+    """
+    This learns the large scale structure of the speech pretty well, but never
+    really learns to produce tones or harmonics, resulting in scratchy, static-y
+    generations
+    """
     def __init__(self):
         super().__init__(
             generator=MDCTGenerator(feature_channels),
+            discriminator=MDCTDiscriminator(feature_channels),
+            learning_rate=1e-4,
+            feature_size=64,
+            audio_repr_class=MDCT,
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
+
+
+class GroupedMDCTExperiment(Experiment):
+    def __init__(self):
+        super().__init__(
+            generator=GroupedMDCTGenerator(feature_channels),
             discriminator=MDCTDiscriminator(feature_channels),
             learning_rate=1e-4,
             feature_size=64,
@@ -107,6 +125,7 @@ class UnconditionedGeneratorExperiment(Experiment):
         doesn't seem to be the case.  These generations are significantly worse
         and less realistic
     """
+
     def __init__(self):
         super().__init__(
             generator=UnconditionedGenerator(),

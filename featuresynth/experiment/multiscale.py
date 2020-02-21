@@ -1,9 +1,20 @@
 from ..audio import RawAudio
-from ..discriminator.multiscale import MultiScaleDiscriminator
+from ..discriminator.multiscale import \
+    MultiScaleDiscriminator, MultiScaleMultiResDiscriminator
 from ..generator.multiscale import MultiScaleGenerator
 from .experiment import Experiment
 from ..feature import feature_channels
 from ..loss import mel_gan_gen_loss, mel_gan_disc_loss
+
+"""
+Things To Try:
+- Add lower resolution judgement to discriminator
+- judgements per band in addition to top-level judgement
+- Filter as first discriminator layer and last generator layer for each channel
+- audio representation where bands are stored separately rather than being
+  resampled and summed together
+- try transposed convolutions in channel generators
+"""
 
 
 class MultiScaleExperiment(Experiment):
@@ -20,6 +31,7 @@ class MultiScaleExperiment(Experiment):
 
     This approach shows promise, and deserves an overnight run
     """
+
     def __init__(self):
         feature_size = 64
         super().__init__(
@@ -31,3 +43,19 @@ class MultiScaleExperiment(Experiment):
             generator_loss=mel_gan_gen_loss,
             discriminator_loss=mel_gan_disc_loss)
 
+
+class MultiScaleMultiResExperiment(Experiment):
+    """
+
+    """
+
+    def __init__(self):
+        feature_size = 64
+        super().__init__(
+            generator=MultiScaleGenerator(feature_channels),
+            discriminator=MultiScaleMultiResDiscriminator(),
+            learning_rate=1e-4,
+            feature_size=feature_size,
+            audio_repr_class=RawAudio,
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
