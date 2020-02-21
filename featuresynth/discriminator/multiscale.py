@@ -3,6 +3,7 @@ from ..audio.transform import fft_frequency_decompose
 from ..util.modules import DownsamplingStack
 from torch.nn.init import xavier_normal_, calculate_gain
 from torch.nn import functional as F
+from functools import reduce
 import torch
 
 
@@ -11,19 +12,29 @@ class STFTDiscriminator(nn.Module):
         super().__init__()
         self.channels = [256, 512, 1024, 2048]
         self.main = DownsamplingStack(
-            64,
-            8,
-            2,
+            start_size=64,
+            target_size=8,
+            scale_factor=2,
             layer_func=self._build_layer,
             activation=lambda x: F.leaky_relu(x, 0.2))
         self.judge = nn.Conv1d(self.channels[-1], 1, 7, 1, 3)
+
+    def initialize_weights(self):
+        for name, weight in self.named_parameters():
+            if weight.data.dim() > 2:
+                if 'judge' in name:
+                    xavier_normal_(weight.data, 1)
+                else:
+                    xavier_normal_(
+                        weight.data, calculate_gain('leaky_relu', 0.2))
+        return self
 
     def _build_layer(self, i, curr_size, out_size, first, last):
         return nn.Conv1d(
             self.channels[i],
             self.channels[i + 1],
             7,
-            1,
+            2,
             3)
 
     def forward(self, x):
@@ -39,7 +50,7 @@ class STFTDiscriminator(nn.Module):
         x = x.permute(0, 2, 1).contiguous()
         features, x = self.main(x, return_features=True)
         x = self.judge(x)
-        return features, [x]
+        return [features], [x]
 
 
 class ChannelDiscriminator(nn.Module):
@@ -125,8 +136,9 @@ class MultiScaleDiscriminator(nn.Module):
 
 
 class MultiScaleMultiResDiscriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, flatten_multiscale_features=False):
         super().__init__()
+        self.flatten_multiscale_features = flatten_multiscale_features
         self.multiscale = MultiScaleDiscriminator()
         self.low_res = STFTDiscriminator()
 
@@ -145,11 +157,17 @@ class MultiScaleMultiResDiscriminator(nn.Module):
         judgements = []
 
         f, j = self.multiscale(x)
-        features.extend(f)
+        if self.flatten_multiscale_features:
+            # treat features from each band as a single group so they don't
+            # dominate the feature-matching loss function
+            f = reduce(lambda a, b: a + b, f, [])
+            features.append(f)
+        else:
+            features.extend(f)
         judgements.extend(j)
 
         f, j = self.low_res(x)
-        features.append(f)
+        features.extend(f)
         judgements.extend(j)
 
         return features, judgements

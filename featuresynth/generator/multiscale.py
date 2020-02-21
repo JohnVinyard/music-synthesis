@@ -6,18 +6,27 @@ from torch.nn import functional as F
 
 
 class ChannelGenerator(nn.Module):
-    def __init__(self, scale_factors, channels):
+    def __init__(self, scale_factors, channels, transposed_conv=False):
         super().__init__()
+        self.transposed_conv = transposed_conv
         self.channels = channels
         self.scale_factors = scale_factors
         layers = []
         for i in range(len(scale_factors)):
-            layers.append(UpSample(
-                in_channels=channels[i],
-                out_channels=channels[i + 1],
-                kernel_size=scale_factors[i] * 2 + 1,
-                scale_factor=scale_factors[i],
-                activation=lambda x: F.leaky_relu(x, 0.2)))
+            if self.transposed_conv:
+                layers.append(LearnedUpSample(
+                    in_channels=channels[i],
+                    out_channels=channels[i + 1],
+                    kernel_size=scale_factors[i] * 2,
+                    scale_factor=scale_factors[i],
+                    activation=lambda x: F.leaky_relu(x, 0.2)))
+            else:
+                layers.append(UpSample(
+                    in_channels=channels[i],
+                    out_channels=channels[i + 1],
+                    kernel_size=scale_factors[i] * 2 + 1,
+                    scale_factor=scale_factors[i],
+                    activation=lambda x: F.leaky_relu(x, 0.2)))
             layers.append(DilatedStack(
                 channels[i + 1],
                 channels[i + 1],
@@ -35,7 +44,7 @@ class ChannelGenerator(nn.Module):
 
 
 class MultiScaleGenerator(nn.Module):
-    def __init__(self, feature_channels):
+    def __init__(self, feature_channels, transposed_conv=False):
         super().__init__()
 
         self.feature_channels = feature_channels
@@ -65,7 +74,8 @@ class MultiScaleGenerator(nn.Module):
         }
         self.channel_generators = {}
         for key, value in self.spec.items():
-            generator = ChannelGenerator(**value)
+            generator = ChannelGenerator(
+                **value, transposed_conv=transposed_conv)
             self.add_module(f'channel_{key}', generator)
             self.channel_generators[key] = generator
 

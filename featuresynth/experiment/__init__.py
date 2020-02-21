@@ -3,7 +3,9 @@ from .mdct import \
     TwoDimMDCTDiscriminatorExperiment, FullTwoDimMDCTDiscriminatorExperiment, \
     GroupedMDCTExperiment
 from .melgan import MelGanExperiment, MultiScaleMelGanExperiment
-from .multiscale import MultiScaleExperiment, MultiScaleMultiResExperiment
+from .multiscale import \
+    MultiScaleExperiment, MultiScaleMultiResExperiment, \
+    MultiScaleLowResOnlyExperiment, MultiScaleMultiResGroupedFeaturesExperiment
 from .ddsp import DDSPExperiment, OneDimDDSPExperiment
 from .filterbank import \
     FilterBankExperiment, LargeReceptiveFieldFilterBankExperiment, \

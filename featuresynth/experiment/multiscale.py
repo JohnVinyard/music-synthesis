@@ -1,6 +1,6 @@
 from ..audio import RawAudio
 from ..discriminator.multiscale import \
-    MultiScaleDiscriminator, MultiScaleMultiResDiscriminator
+    MultiScaleDiscriminator, MultiScaleMultiResDiscriminator, STFTDiscriminator
 from ..generator.multiscale import MultiScaleGenerator
 from .experiment import Experiment
 from ..feature import feature_channels
@@ -8,11 +8,10 @@ from ..loss import mel_gan_gen_loss, mel_gan_disc_loss
 
 """
 Things To Try:
-- Add lower resolution judgement to discriminator
 - judgements per band in addition to top-level judgement
 - Filter as first discriminator layer and last generator layer for each channel
 - audio representation where bands are stored separately rather than being
-  resampled and summed together
+  resampled and summed together for better gradients?
 - try transposed convolutions in channel generators
 """
 
@@ -54,6 +53,42 @@ class MultiScaleMultiResExperiment(Experiment):
         super().__init__(
             generator=MultiScaleGenerator(feature_channels),
             discriminator=MultiScaleMultiResDiscriminator(),
+            learning_rate=1e-4,
+            feature_size=feature_size,
+            audio_repr_class=RawAudio,
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
+
+
+class MultiScaleMultiResGroupedFeaturesExperiment(Experiment):
+    """
+
+    """
+
+    def __init__(self):
+        feature_size = 64
+        super().__init__(
+            generator=MultiScaleGenerator(
+                feature_channels, transposed_conv=True),
+            discriminator=MultiScaleMultiResDiscriminator(
+                flatten_multiscale_features=True),
+            learning_rate=1e-4,
+            feature_size=feature_size,
+            audio_repr_class=RawAudio,
+            generator_loss=mel_gan_gen_loss,
+            discriminator_loss=mel_gan_disc_loss)
+
+
+class MultiScaleLowResOnlyExperiment(Experiment):
+    """
+
+    """
+
+    def __init__(self):
+        feature_size = 64
+        super().__init__(
+            generator=MultiScaleGenerator(feature_channels),
+            discriminator=STFTDiscriminator(),
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,
