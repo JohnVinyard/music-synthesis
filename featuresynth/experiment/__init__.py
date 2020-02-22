@@ -10,3 +10,4 @@ from .ddsp import DDSPExperiment, OneDimDDSPExperiment
 from .filterbank import \
     FilterBankExperiment, LargeReceptiveFieldFilterBankExperiment, \
     ResidualStackFilterBankExperiment, LowResFilterBankExperiment
+from .report import Report

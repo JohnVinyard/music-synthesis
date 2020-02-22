@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>REPORT</title>
+  <style>
+    img {
+      height: 500px;
+    }
+    .result {
+      border: solid 1px #aaa;
+      background-color: #eee;
+      padding:10px;
+      margin:10px;
+    }
+    .flex-grid {
+      display: flex;
+    }
+    .col {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <template id="audio-template">
+    <div>
+      <audio controls>
+        <source :src="source" type="audio/ogg">
+        Your browser does not support the audio element.
+      </audio>
+    </div>
+  </template>
+
+  <template id="image-template">
+      <div>
+          <img :src="source" />
+      </div>
+  </template>
+
+    <div id="app">
+        <h1>{{ reportData.title }}</h1>
+        {{ reportData.date }}
+        <p>
+          {{ reportData.comments }}
+        </p>
+        <div>
+          <div class="result" v-for="result in reportData.results">
+
+            <div class="flex-grid">
+              <div class="col">
+                <h2>Input Feature</h2>
+                <image-viewer :source="result.feature"></image-viewer>
+              </div>
+              <div class="col">
+                <h2>Real</h2>
+                <image-viewer :source="result.real_spectrogram"></image-viewer>
+                <audio-player :source="result.real_audio"></audio-player>
+              </div>
+              <div class="col">
+                <h2>Fake</h2>
+                <image-viewer :source="result.fake_spectrogram"></image-viewer>
+                <audio-player :source="result.fake_audio"></audio-player>
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="app.js"></script>
+</html>

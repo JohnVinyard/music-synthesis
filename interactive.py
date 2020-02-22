@@ -66,6 +66,11 @@ def check():
 
 
 if __name__ == '__main__':
-    app = zounds.ZoundsApp(globals=globals(), locals=locals())
-    app.start_in_thread(9999)
-    input('Waiting...')
+    # app = zounds.ZoundsApp(globals=globals(), locals=locals())
+    # app.start_in_thread(9999)
+    # input('Waiting...')
+    from featuresynth.experiment import Report
+    from featuresynth.experiment.winners import MultiScaleMelGanExperiment
+    experiment = MultiScaleMelGanExperiment()
+    r = Report(experiment, 'test-generator-report')
+    r.generate(ds, 3, sr, regenerate=True)

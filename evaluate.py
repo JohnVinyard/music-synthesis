@@ -8,6 +8,7 @@ from featuresynth.data import DataStore
 import featuresynth.experiment
 from featuresynth.feature import sr
 from featuresynth.util import device
+from featuresynth.experiment import Report
 
 import argparse
 
@@ -33,6 +34,16 @@ if __name__ == '__main__':
         help='minibatch size',
         type=int,
         default=32)
+    parser.add_argument(
+        '--report',
+        action='store_true')
+    parser.add_argument(
+        '--report-examples',
+        type=int,
+        default=5)
+    parser.add_argument(
+        '--report-source-update-only',
+        action='store_true')
     args = parser.parse_args()
 
     experiment = getattr(featuresynth.experiment, args.experiment)()
@@ -42,6 +53,15 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = True
 
     experiment = experiment.to(device)
+
+    if args.report:
+        report = Report(experiment)
+        report.generate(
+            ds,
+            args.report_examples,
+            sr,
+            regenerate=not args.report_source_update_only)
+        exit()
 
     steps = cycle([
         experiment.discriminator_trainer,
