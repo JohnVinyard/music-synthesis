@@ -47,9 +47,13 @@ class BaseGanExperiment(object):
             - conditioning feature
             - generated audio
             - generated stft
+            - report on GPU and CPU generation times
 
         These files are saved to a local directory, or uploaded to an s3
         bucket for public access
+
+        They are placed into a simple HTML template that includes vue.js,
+        which renders the results
         """
         raise NotImplementedError()
 

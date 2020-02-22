@@ -1,10 +1,9 @@
-import zounds
-from featuresynth.data import DataStore
-from zounds.learn import SincLayer
+import numpy as np
 import torch
-from torch.nn import functional as F
-from torch import nn
-import math
+import zounds
+import librosa
+from featuresynth.data import DataStore
+from featuresynth.feature.spectrogram import FilterBankSpectrogram
 
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 batch_stream = ds.batch_stream(1, {
@@ -12,27 +11,38 @@ batch_stream = ds.batch_stream(1, {
     'spectrogram': (64, 256)
 })
 
+feature_channels = 256
+taps = 1024
+pooling = (512, 256)
+sr = zounds.SR11025()
+geom_scale = zounds.GeometricScale(20, sr.nyquist - 20, 0.05, feature_channels)
+mel_scale = zounds.MelScale(
+    zounds.FrequencyBand(20, sr.nyquist - 20), feature_channels)
+
+# scaling_factors = np.linspace(0.25, 0.5, feature_channels)
+scaling_factors = [0.5] * feature_channels
+
+geom = FilterBankSpectrogram(sr, taps, geom_scale, scaling_factors, pooling)
+mel = FilterBankSpectrogram(sr, taps, mel_scale, scaling_factors, pooling)
+
+
+def compare():
+    samples, features = next(batch_stream)
+    orig = zounds.AudioSamples(samples.squeeze(), sr)
+    f = np.abs(zounds.spectral.stft(orig))
+    n_fft, hop_length = pooling
+    lm = librosa.feature.melspectrogram(
+        orig,
+        int(sr),
+        n_fft=1024,
+        hop_length=hop_length,
+        n_mels=feature_channels)
+    samples = torch.from_numpy(samples).float()
+    g = geom.forward(samples).data.cpu().numpy().squeeze().T
+    m = mel.forward(samples).data.cpu().numpy().squeeze().T
+    return orig, np.log(g), np.log(m), np.log(f), np.log(lm.T)
+
 if __name__ == '__main__':
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
     app.start_in_thread(9999)
-
-    sr = zounds.SR11025()
-    samples, features = next(batch_stream)
-    orig = zounds.AudioSamples(samples.squeeze(), sr)
-    samples = torch.from_numpy(samples).float()
-
-    scale = zounds.MelScale(zounds.FrequencyBand(20, sr.nyquist), 128)
-    # sinc = SincLayer(scale, 257, sr)
-    sinc = zounds.learn.FilterBank(
-        sr, 512, scale, 0.9, normalize_filters=True, a_weighting=False)
-
-    spec = sinc.convolve(samples)
-    recon = sinc.transposed_convolve(spec)
-    ds = F.avg_pool1d(F.relu(spec), 512, 256, 256)
-
-    spec = spec.data.cpu().numpy().squeeze()
-    ds = ds.data.cpu().numpy().squeeze()
-    fb = sinc.filter_bank.data.cpu().numpy().squeeze()
-    recon = zounds.AudioSamples(recon.data.cpu().numpy().squeeze(), sr)
-    recon /= recon.max()
     input('Waiting...')
