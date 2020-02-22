@@ -1,8 +1,4 @@
 # TODO
-- look at different spectrogram scales (and listen to them)
-- implement different FFT representations
-- understand phase
-- FFT representation
 - winner's circle
 
 - conjure

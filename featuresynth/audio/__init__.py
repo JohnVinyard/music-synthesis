@@ -1,1 +1,3 @@
-from .representation import RawAudio, MDCT
+from .representation import \
+    RawAudio, MDCT, STFT, UnwrappedPhaseSTFT, MelScalePhaseRecover, \
+    GeometricScalePhaseRecover

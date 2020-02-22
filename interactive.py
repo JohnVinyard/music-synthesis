@@ -4,6 +4,7 @@ import zounds
 import librosa
 from featuresynth.data import DataStore
 from featuresynth.feature.spectrogram import FilterBankSpectrogram
+from featuresynth.audio import MelScalePhaseRecover, GeometricScalePhaseRecover
 
 ds = DataStore('timit', '/hdd/TIMIT', pattern='*.WAV', max_workers=2)
 batch_stream = ds.batch_stream(1, {
@@ -41,6 +42,28 @@ def compare():
     g = geom.forward(samples).data.cpu().numpy().squeeze().T
     m = mel.forward(samples).data.cpu().numpy().squeeze().T
     return orig, np.log(g), np.log(m), np.log(f), np.log(lm.T)
+
+
+def check_recon():
+    samples, features = next(batch_stream)
+    orig = zounds.AudioSamples(samples.squeeze(), sr)
+    samples = torch.from_numpy(orig)
+    m = mel.reconstruct(samples)
+    g = geom.reconstruct(samples)
+    m = zounds.AudioSamples(m.data.cpu().numpy().squeeze(), sr)
+    g = zounds.AudioSamples(g.data.cpu().numpy().squeeze(), sr)
+    m /= np.abs(m).max()
+    g /= np.abs(g).max()
+    return orig, m, g
+
+
+def check():
+    samples, features = next(batch_stream)
+    orig = zounds.AudioSamples(samples.squeeze(), sr)
+    m = MelScalePhaseRecover.from_audio(orig, sr)
+    g = GeometricScalePhaseRecover.from_audio(orig, sr)
+    return orig, m, g
+
 
 if __name__ == '__main__':
     app = zounds.ZoundsApp(globals=globals(), locals=locals())

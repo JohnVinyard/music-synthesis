@@ -30,6 +30,11 @@ class FilterBankSpectrogram(BaseSpectrogram):
             normalize_filters=False,
             a_weighting=False)
 
+    def reconstruct(self, x):
+        x = self.fb.convolve(x)
+        x = self.fb.transposed_convolve(x)
+        return x
+
     def forward(self, x):
         x = self.fb.convolve(x)
         x = F.relu(x)
