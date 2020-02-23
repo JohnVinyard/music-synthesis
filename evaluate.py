@@ -7,6 +7,7 @@ import zounds
 from featuresynth.data import DataStore
 import featuresynth.experiment
 from featuresynth.feature import sr
+from featuresynth.feature import compute_features
 from featuresynth.util import device
 from featuresynth.experiment import Report
 
@@ -82,9 +83,12 @@ if __name__ == '__main__':
 
     batch_count = 0
 
-    for samples, features in batch_stream:
+    for samples, _ in batch_stream:
         # normalize samples and features
         samples /= np.abs(samples).max(axis=-1, keepdims=True) + 1e-12
+
+
+        features = compute_features(samples, device)
         features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
         real_spec = features[0].T
 

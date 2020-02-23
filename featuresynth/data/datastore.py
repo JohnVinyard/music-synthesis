@@ -35,27 +35,63 @@ class BaseDataStore(object):
                     yield k
                 seen.add(k)
 
+    def _interpret_memview(self, memview, channels):
+        raw = np.asarray(memview, dtype=np.uint8)
+        # reshape to (time, channels)
+        arr = raw.view(dtype=np.float32).reshape((-1, channels))
+        return arr
+
+    def _get_raw(
+            self,
+            key,
+            feature,
+            channels,
+             transform=lambda memview, channels: memview):
+        full_key = f'{key.decode()}:{feature}'
+        with self.env.begin(write=False, buffers=True) as txn:
+            memview = txn.get(full_key.encode())
+            if memview is None:
+                raise KeyError(full_key)
+            return transform(memview, channels)
+
+    def _get_feature_data(self, key, feature, channels):
+        return self._get_raw(key, feature, channels, self._interpret_memview)
+
+    def iter_feature(self, feature, channels):
+        for key in self.iter_keys():
+            yield self._get_feature_data(key, feature, channels)
+
+    def _random_slice(self, arr, feature_length):
+
+        # choose random start and end indices
+        try:
+            start = np.random.randint(0, len(arr) - feature_length)
+        except ValueError:
+            start = 0
+
+        end = start + feature_length
+
+        # Ensure the segment follows (batch, channels, time) convention
+        segment = arr[start: end].copy().T[None, ...]
+
+        if segment.shape[-1] < feature_length:
+            diff = feature_length - segment.shape[-1]
+            segment = np.pad(
+                segment, ((0, 0), (0, 0), (0, diff)), 'constant')
+            end += diff
+
+        return segment.astype(np.float32), start, end
+
     def _get_data(self, key, feature, feature_length, channels):
         full_key = f'{key.decode()}:{feature}'
         with self.env.begin(write=False, buffers=True) as txn:
             memview = txn.get(full_key.encode())
             if memview is None:
                 raise KeyError(full_key)
-            raw = np.asarray(memview, dtype=np.uint8)
-            # reshape to (time, channels)
-            arr = raw.view(dtype=np.float32).reshape((-1, channels))
-            # choose a random segment
-            try:
-                start = np.random.randint(0, len(arr) - feature_length)
-            except ValueError:
-                start = 0
-            # Ensure the segment follows (batch, channels, time) convention
-            segment = arr[start: start + feature_length].copy().T[None, ...]
-            if segment.shape[-1] < feature_length:
-                diff = feature_length - segment.shape[-1]
-                segment = np.pad(
-                    segment, ((0, 0), (0, 0), (0, diff)), 'constant')
-            return segment.astype(np.float32)
+
+            arr = self._interpret_memview(memview, channels)
+            segment, start, end = self._random_slice(arr, feature_length)
+            return segment
 
     def batch_stream(
             self, batch_size, feature_spec):
@@ -132,4 +168,3 @@ class MdctDataStore(BaseDataStore):
         dims = features[0].dimensions
         features = zounds.ArrayWithUnits(np.concatenate(features, axis=0), dims)
         return {'mdct': features}
-
