@@ -133,43 +133,37 @@ def compute_features(samples, dev=device):
     return pooled(spectral).astype(np.float32)
 
 
-# def compute_features_batched(samples, n_samples, batch_size, feature_func):
-#     orig_batch_size = samples.shape[0]
-#     batched = zounds.sliding_window(
-#         samples, samples.shape[:2] + (n_samples,))
-#     new_batch_size = batched.shape[0]
-#     batched = batched.reshape(-1, 1, n_samples)
-#
-#     results = []
-#     for i in range(0, len(batched), batch_size):
-#         results.append(feature_func(batched[i: i + batch_size]))
-#
-#     results = np.concatenate(results, axis=0)
-#     channels = results.shape[1]
-#
-#     results = results.reshape((new_batch_size, orig_batch_size, 1, n_samples))
-#     results = results.transpose((1, 2, 0, 3))
-#     results = results.reshape((orig_batch_size, channels, -1))
-#     return results
-
-
 def compute_features_batched(
         samples,
         samples_per_example,
         batch_size,
-        feature_func,
-        normalize_samples=True):
+        feature_func):
 
+    # Pad so we have an even multiple of samples per example
+    # TODO: Get rid of hard-coded feature-size and hop-size here
+    expected_frames = max(64, len(samples) // 256)
+    leftovers = len(samples) % samples_per_example
+    padding_amt = samples_per_example - leftovers
+    samples = np.pad(samples, ((0, padding_amt),), mode='constant')
+
+    # compute features in batches
     x = zounds.sliding_window(samples, samples_per_example)
     results = []
     for i in range(0, len(x), batch_size):
         results.append(feature_func(x[i: i + batch_size]))
     results = np.concatenate(results, axis=0)
+
+    # reshape
     # now we have (batches, channels, time)
     channels = results.shape[1]
     results = results.transpose((0, 2, 1))
     # now we have (batches, time, channels)
     results = results.reshape(-1, channels)
+    # now we have (time, channels)
+
+    # lop off extra padding frames
+    results = results[:expected_frames, :]
+
     return results
 
 

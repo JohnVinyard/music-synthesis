@@ -138,8 +138,9 @@ class Experiment(BaseGanExperiment):
     def audio_representation(self, data, sr):
         return self.__audio_repr_class(data, sr)
 
-    def batch_stream(self, batch_size, data_source):
-        return data_source.batch_stream(batch_size, self.feature_spec)
+    def batch_stream(self, batch_size, data_source, anchor_feature):
+        return data_source.batch_stream(
+            batch_size, self.feature_spec, anchor_feature)
 
     @property
     def feature_spec(self):

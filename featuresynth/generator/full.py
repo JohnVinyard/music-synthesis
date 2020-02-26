@@ -53,11 +53,12 @@ class MelGanGenerator(nn.Module):
     def initialize_weights(self):
         for name, weight in self.named_parameters():
             if weight.data.dim() > 2:
-                if 'samples' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
+                # if 'samples' in name:
+                #     xavier_normal_(weight.data, 1)
+                # else:
+                #     xavier_normal_(
+                #         weight.data, calculate_gain('leaky_relu', 0.2))
+                weight.data.normal_(0, 0.02)
         return self
 
     def forward(self, x):

@@ -7,7 +7,6 @@ import zounds
 from featuresynth.data import DataStore
 import featuresynth.experiment
 from featuresynth.feature import sr
-from featuresynth.feature import compute_features
 from featuresynth.util import device
 from featuresynth.experiment import Report
 
@@ -45,6 +44,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--report-source-update-only',
         action='store_true')
+    parser.add_argument(
+        '--populate',
+        action='store_true')
     args = parser.parse_args()
 
     experiment = getattr(featuresynth.experiment, args.experiment)()
@@ -55,19 +57,19 @@ if __name__ == '__main__':
 
     experiment = experiment.to(device)
 
+    if args.populate:
+        ds.populate()
+        exit()
+
     if args.report:
         report = Report(experiment)
         report.generate(
             ds,
+            'spectrogram',
             args.report_examples,
             sr,
             regenerate=not args.report_source_update_only)
         exit()
-
-    steps = cycle([
-        experiment.discriminator_trainer,
-        experiment.generator_trainer
-    ])
 
     if args.resume:
         experiment.resume()
@@ -75,20 +77,25 @@ if __name__ == '__main__':
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
     app.start_in_thread(8888)
 
+    anchor_feature = 'spectrogram'
     if args.overfit:
-        batch_stream = cycle(
-            [next(ds.batch_stream(1, experiment.feature_spec))])
+        batch_stream = cycle([next(ds.batch_stream(
+            1, experiment.feature_spec, anchor_feature))])
     else:
-        batch_stream = ds.batch_stream(args.batch_size, experiment.feature_spec)
+        batch_stream = ds.batch_stream(
+            args.batch_size, experiment.feature_spec, anchor_feature)
+
+    steps = cycle([
+        experiment.discriminator_trainer,
+        experiment.generator_trainer
+    ])
 
     batch_count = 0
-
-    for samples, _ in batch_stream:
+    for samples, features in batch_stream:
         # normalize samples and features
         samples /= np.abs(samples).max(axis=-1, keepdims=True) + 1e-12
 
-
-        features = compute_features(samples, device)
+        features -= features.min(axis=(1, 2), keepdims=True)
         features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
         real_spec = features[0].T
 

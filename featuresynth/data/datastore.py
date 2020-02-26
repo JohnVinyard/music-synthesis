@@ -2,12 +2,14 @@ import lmdb
 import numpy as np
 import zounds
 from .data import preprocess_audio
-from ..feature import compute_features_batched, compute_features, sr
+from ..feature import \
+    compute_features_batched, compute_features, sr, total_samples
 from ..util.datasource import iter_files
 import concurrent.futures
 from random import choice
 from collections import defaultdict
 from uuid import uuid4
+import librosa
 
 
 class BaseDataStore(object):
@@ -41,22 +43,6 @@ class BaseDataStore(object):
         arr = raw.view(dtype=np.float32).reshape((-1, channels))
         return arr
 
-    def _get_raw(
-            self,
-            key,
-            feature,
-            channels,
-             transform=lambda memview, channels: memview):
-        full_key = f'{key.decode()}:{feature}'
-        with self.env.begin(write=False, buffers=True) as txn:
-            memview = txn.get(full_key.encode())
-            if memview is None:
-                raise KeyError(full_key)
-            return transform(memview, channels)
-
-    def _get_feature_data(self, key, feature, channels):
-        return self._get_raw(key, feature, channels, self._interpret_memview)
-
     def iter_feature(self, feature, channels):
         for key in self.iter_keys():
             yield self._get_feature_data(key, feature, channels)
@@ -72,8 +58,11 @@ class BaseDataStore(object):
         end = start + feature_length
 
         # Ensure the segment follows (batch, channels, time) convention
-        segment = arr[start: end].copy().T[None, ...]
+        # segment = arr[start: end].copy().T[None, ...]
+        segment = self._slice(arr, start, end)
 
+        # TODO: Padding should no longer be necessary, as it's taken care of
+        # in the data population step
         if segment.shape[-1] < feature_length:
             diff = feature_length - segment.shape[-1]
             segment = np.pad(
@@ -82,31 +71,80 @@ class BaseDataStore(object):
 
         return segment.astype(np.float32), start, end
 
-    def _get_data(self, key, feature, feature_length, channels):
-        full_key = f'{key.decode()}:{feature}'
+    def _slice(self, arr, start, end):
+        # Ensure the segment follows (batch, channels, time) convention
+        return arr[start:end].copy().T[None, ...]
+
+    def _full_key(self, key, feature):
+        return f'{key.decode()}:{feature}'
+
+    def _get(self, key, feature, txn, channels):
+        full_key = self._full_key(key, feature)
+        memview = txn.get(full_key.encode())
+        if memview is None:
+            raise KeyError(full_key)
+        arr = self._interpret_memview(memview, channels)
+        return arr
+
+    def _get_random_aligned_features(
+            self,
+            key,
+            anchor_feature,
+            feature_length,
+            feature_ratio_spec):
+        """
+        key - which sound will samples be drawn from?
+        anchor_feature - the feature that will be randomly selected, and to
+            which other features will be aligned
+        feature_length - the number of samples of anchor_feature to draw
+        feature_ratio_spec - sample ratios for all other features to be selected
+            in the form {
+                feature: (feature_size, feature_channels, ratio_to_anchor)
+            }
+        """
+
+        feature_slices = {}
+        anchor_channels = feature_ratio_spec[anchor_feature][1]
+
         with self.env.begin(write=False, buffers=True) as txn:
-            memview = txn.get(full_key.encode())
-            if memview is None:
-                raise KeyError(full_key)
 
-            arr = self._interpret_memview(memview, channels)
-            segment, start, end = self._random_slice(arr, feature_length)
-            return segment
+            full_anchor_feat = self._get(
+                key, anchor_feature, txn, anchor_channels)
+            anchor_slice, start, end = self._random_slice(
+                full_anchor_feat, feature_length)
+            feature_slices[anchor_feature] = anchor_slice
 
-    def batch_stream(
-            self, batch_size, feature_spec):
+            for feat_name, spec in feature_ratio_spec.items():
+                if feat_name == anchor_feature:
+                    continue
+
+                size, channels, ratio = spec
+                s = start * ratio
+                e = end * ratio
+                full_feat = self._get(key, feat_name, txn, channels)
+                feat_slice = self._slice(full_feat, s, e)
+                feature_slices[feat_name] = feat_slice
+
+        return feature_slices
+
+    def batch_stream(self, batch_size, feature_spec, anchor_feature):
+
+        # build ratio spec
+        anchor_size, anchor_channels = feature_spec[anchor_feature]
+        ratio_spec = {}
+        for feat, spec in feature_spec.items():
+            size, channels = spec
+            ratio_spec[feat] = spec + (size // anchor_size,)
+
         all_keys = list(self.iter_keys())
         while True:
             batch = defaultdict(list)
             for _ in range(batch_size):
                 key = choice(all_keys)
-                for feature, shape in feature_spec.items():
-                    length, channels = shape
-                    batch[feature].append(self._get_data(
-                        key,
-                        feature,
-                        length,
-                        channels))
+                aligned_features = self._get_random_aligned_features(
+                    key, anchor_feature, anchor_size, ratio_spec)
+                for feat, slce in aligned_features.items():
+                    batch[feat].append(slce)
             finalized = tuple(
                 np.concatenate(batch[feature], axis=0)
                 for feature in feature_spec)
@@ -125,10 +163,10 @@ class BaseDataStore(object):
                 for filename in filenames}
 
             for future in concurrent.futures.as_completed(work):
-                key = uuid4().hex
+                key = uuid4().hex.encode()
                 feature_dict = future.result()
                 for feature_name, value in feature_dict.items():
-                    full_key = f'{key}:{feature_name}'
+                    full_key = self._full_key(key, feature_name)
                     with self.env.begin(write=True, buffers=True) as txn:
                         feat = np.ascontiguousarray(value, dtype=np.float32)
                         try:
@@ -145,26 +183,17 @@ class DataStore(BaseDataStore):
 
     def _transform_func(self, filename):
         samples = zounds.AudioSamples.from_file(filename)
-        total_samples = 16384
         samples = preprocess_audio(samples, sr, min_samples=total_samples)
-        features = compute_features_batched(
-            samples, total_samples, 8, compute_features)
+
+        # features = compute_features_batched(
+        #     samples, total_samples, 8, compute_features)
+
+        features = librosa.feature.melspectrogram(
+            samples,
+            int(sr),
+            n_fft=1024,
+            hop_length=256,
+            n_mels=256)
+        features = np.log(features + 1e-12).T.astype(np.float32)
+
         return {'audio': samples, 'spectrogram': features}
-
-
-class MdctDataStore(BaseDataStore):
-    def __init__(self, path, audio_path, pattern='*.wav'):
-        super().__init__(path, audio_path, pattern)
-
-    def _transform_func(self, filename):
-        samples = zounds.AudioSamples.from_file(filename)
-        total_samples = 16384
-        samples = preprocess_audio(samples, sr, min_samples=total_samples)
-        window_sr = zounds.HalfLapped()
-        windowed = samples.sliding_window(window_sr)
-        windowed = windowed * zounds.OggVorbisWindowingFunc()
-        node = zounds.MDCT()
-        features = list(node._process(windowed))
-        dims = features[0].dimensions
-        features = zounds.ArrayWithUnits(np.concatenate(features, axis=0), dims)
-        return {'mdct': features}
