@@ -28,22 +28,18 @@ class MelGanGenerator(nn.Module):
 
             weight_norm(nn.ConvTranspose1d(512, 256, 16, 8, 4)),
             nn.LeakyReLU(0.2),
-
             ResidualStack(256, [1, 3, 9]),
 
             weight_norm(nn.ConvTranspose1d(256, 128, 16, 8, 4)),
             nn.LeakyReLU(0.2),
-
             ResidualStack(128, [1, 3, 9]),
 
             weight_norm(nn.ConvTranspose1d(128, 64, 4, 2, 1)),
             nn.LeakyReLU(0.2),
-
             ResidualStack(64, [1, 3, 9]),
 
             weight_norm(nn.ConvTranspose1d(64, 32, 4, 2, 1)),
             nn.LeakyReLU(0.2),
-
             ResidualStack(32, [1, 3, 9]),
 
             weight_norm(nn.Conv1d(32, 1, 7, 1, 3)),
