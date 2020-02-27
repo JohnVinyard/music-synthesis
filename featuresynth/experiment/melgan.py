@@ -4,6 +4,7 @@ from ..feature import feature_channels
 from ..generator.full import MelGanGenerator
 from .experiment import Experiment
 from ..loss import mel_gan_disc_loss, mel_gan_gen_loss
+from .init import basic_init, discriminator_init
 
 
 class MultiScaleMelGanExperiment(Experiment):
@@ -21,7 +22,9 @@ class MultiScaleMelGanExperiment(Experiment):
             feature_size=feature_size,
             audio_repr_class=RawAudio,
             generator_loss=mel_gan_gen_loss,
-            discriminator_loss=mel_gan_disc_loss)
+            discriminator_loss=mel_gan_disc_loss,
+            g_init=basic_init,
+            d_init=discriminator_init)
 
 
 class MelGanExperiment(Experiment):

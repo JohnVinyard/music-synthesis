@@ -1,5 +1,6 @@
 from ..train import GeneratorTrainer, DiscriminatorTrainer
 from ..feature import total_samples, feature_channels
+from .init import generator_init, discriminator_init
 from torch.optim import Adam
 import torch
 import numpy as np
@@ -71,14 +72,29 @@ class Experiment(BaseGanExperiment):
             feature_size,
             audio_repr_class,
             generator_loss,
-            discriminator_loss):
+            discriminator_loss,
+            g_init=generator_init,
+            d_init=discriminator_init):
         super().__init__()
 
-        self.__g = generator.initialize_weights()
+        self.discriminator_init = d_init
+        self.generator_init = g_init
+
+        if hasattr(generator, 'initialize_weights'):
+            raise ValueError(
+                'initialize_weights() method on generators is deprecated')
+
+        if hasattr(discriminator, 'initialize_weights'):
+            raise ValueError(
+                'initialize_weights() method on discriminators is deprecated')
+
+        self.__g = generator
+        self._apply_init(self.__g, self.generator_init)
         self.__g_optim = Adam(
             self.__g.parameters(), lr=learning_rate, betas=(0, 0.9))
 
-        self.__d = discriminator.initialize_weights()
+        self.__d = discriminator
+        self._apply_init(self.__d, self.discriminator_init)
         self.__d_optim = Adam(
             self.__d.parameters(), lr=learning_rate, betas=(0, 0.9))
 
@@ -98,6 +114,10 @@ class Experiment(BaseGanExperiment):
 
         self.__feature_size = feature_size
         self.__audio_repr_class = audio_repr_class
+
+    def _apply_init(self, network, init_func):
+        for name, weight in network.named_parameters():
+            init_func(name, weight)
 
     def _name(self):
         name = self.__class__.__name__.lower()
