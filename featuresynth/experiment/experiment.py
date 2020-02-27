@@ -2,6 +2,7 @@ from ..train import GeneratorTrainer, DiscriminatorTrainer
 from ..feature import total_samples, feature_channels
 from torch.optim import Adam
 import torch
+import numpy as np
 
 
 class BaseGanExperiment(object):
@@ -33,6 +34,9 @@ class BaseGanExperiment(object):
 
     def audio_representation(self, data, sr):
         raise NotImplementedError()
+
+    def preprocess_batch(self, batch):
+        return batch
 
     def to(self, device):
         self.generator.to(device)
@@ -141,6 +145,18 @@ class Experiment(BaseGanExperiment):
     def batch_stream(self, batch_size, data_source, anchor_feature):
         return data_source.batch_stream(
             batch_size, self.feature_spec, anchor_feature)
+
+    def preprocess_batch(self, batch):
+        samples, features = batch
+
+        # max one normalization for samples
+        samples /= np.abs(samples).max(axis=-1, keepdims=True) + 1e-12
+
+        # max one normalization for features, which may have had log scaling
+        # applied and might be negative
+        features -= features.min(axis=(1, 2), keepdims=True)
+        features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
+        return samples, features
 
     @property
     def feature_spec(self):

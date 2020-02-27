@@ -1,6 +1,5 @@
 from itertools import cycle
 
-import numpy as np
 import torch
 import zounds
 
@@ -59,9 +58,7 @@ if __name__ == '__main__':
 
     if args.populate:
         ds.populate()
-        exit()
-
-    if args.report:
+    elif args.report:
         report = Report(experiment)
         report.generate(
             ds,
@@ -69,46 +66,43 @@ if __name__ == '__main__':
             args.report_examples,
             sr,
             regenerate=not args.report_source_update_only)
-        exit()
-
-    if args.resume:
-        experiment.resume()
-
-    app = zounds.ZoundsApp(globals=globals(), locals=locals())
-    app.start_in_thread(8888)
-
-    anchor_feature = 'spectrogram'
-    if args.overfit:
-        batch_stream = cycle([next(ds.batch_stream(
-            1, experiment.feature_spec, anchor_feature))])
     else:
-        batch_stream = ds.batch_stream(
-            args.batch_size, experiment.feature_spec, anchor_feature)
+        if args.resume:
+            experiment.resume()
 
-    steps = cycle([
-        experiment.discriminator_trainer,
-        experiment.generator_trainer
-    ])
+        app = zounds.ZoundsApp(globals=globals(), locals=locals())
+        app.start_in_thread(8888)
 
-    batch_count = 0
-    for samples, features in batch_stream:
-        # normalize samples and features
-        samples /= np.abs(samples).max(axis=-1, keepdims=True) + 1e-12
+        anchor_feature = 'spectrogram'
+        if args.overfit:
+            batch_stream = cycle([next(ds.batch_stream(
+                1, experiment.feature_spec, anchor_feature))])
+        else:
+            batch_stream = ds.batch_stream(
+                args.batch_size, experiment.feature_spec, anchor_feature)
 
-        features -= features.min(axis=(1, 2), keepdims=True)
-        features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
-        real_spec = features[0].T
+        steps = cycle([
+            experiment.discriminator_trainer,
+            experiment.generator_trainer
+        ])
 
-        real = experiment.from_audio(samples, sr)
+        batch_count = 0
+        for batch in batch_stream:
 
-        samples = torch.from_numpy(real.data).to(device)
-        features = torch.from_numpy(features).to(device)
+            samples, features = experiment.preprocess_batch(batch)
 
-        step = next(steps)
-        data = step(samples, features)
-        print({k: v for k, v in data.items() if 'loss' in k})
-        try:
-            fake = experiment.audio_representation(data['fake'], sr)
-        except KeyError:
-            pass
-        batch_count += 1
+            real_spec = features[0].T
+
+            real = experiment.from_audio(samples, sr)
+
+            samples = torch.from_numpy(real.data).to(device)
+            features = torch.from_numpy(features).to(device)
+
+            step = next(steps)
+            data = step(samples, features)
+            print({k: v for k, v in data.items() if 'loss' in k})
+            try:
+                fake = experiment.audio_representation(data['fake'], sr)
+            except KeyError:
+                pass
+            batch_count += 1
