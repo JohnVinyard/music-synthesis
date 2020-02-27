@@ -1,7 +1,6 @@
 import lmdb
 import numpy as np
 import zounds
-from .data import preprocess_audio
 from ..feature import \
     compute_features_batched, compute_features, sr, total_samples
 from ..util.datasource import iter_files
@@ -175,6 +174,20 @@ class BaseDataStore(object):
                         except BufferError as be:
                             print(be)
                     print(f'wrote {full_key} with feature shape {feat.shape}')
+
+
+def preprocess_audio(samples, target_samplerate, min_samples):
+    samples = zounds.soundfile.resample(samples.mono, target_samplerate)
+
+    # ensure there are at least min_samples
+    if len(samples) < min_samples:
+        diff = min_samples - len(samples)
+        samples = zounds.AudioSamples(
+            np.pad(samples, ((0, diff)), 'constant'),
+            samples.samplerate)
+        assert len(samples) == min_samples
+
+    return samples
 
 
 class DataStore(BaseDataStore):
