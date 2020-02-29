@@ -1,9 +1,7 @@
 from ..audio import RawAudio
-from ..discriminator.full import FullDiscriminator
 from ..discriminator import MelGanDiscriminator
 from ..generator.full import TwoDimDDSPGenerator, DDSPGenerator
 from .experiment import Experiment
-from ..feature import feature_channels
 from ..loss import mel_gan_disc_loss, mel_gan_gen_loss
 
 
@@ -28,6 +26,7 @@ class OneDimDDSPExperiment(Experiment):
         - frenetic noise component that sounds like panting or frenzied clicking
     """
     def __init__(self):
+        feature_channels = 256
         feature_size = 64 + 32
         super().__init__(
             generator=DDSPGenerator(feature_size, feature_channels),
@@ -62,6 +61,7 @@ class DDSPExperiment(Experiment):
         - frenetic noise component that sounds like panting or frenzied clicking
     """
     def __init__(self):
+        feature_channels = 256
         feature_size = 64 + 32
         super().__init__(
             generator=TwoDimDDSPGenerator(feature_size, feature_channels),

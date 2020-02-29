@@ -3,7 +3,6 @@ from ..discriminator.multiscale import \
     MultiScaleDiscriminator, MultiScaleMultiResDiscriminator, STFTDiscriminator
 from ..generator.multiscale import MultiScaleGenerator
 from .experiment import Experiment
-from ..feature import feature_channels
 from ..loss import mel_gan_gen_loss, mel_gan_disc_loss
 
 """
@@ -33,6 +32,7 @@ class MultiScaleExperiment(Experiment):
 
     def __init__(self):
         feature_size = 64
+        feature_channels = 256
         super().__init__(
             generator=MultiScaleGenerator(feature_channels),
             discriminator=MultiScaleDiscriminator(),
@@ -50,6 +50,7 @@ class MultiScaleMultiResExperiment(Experiment):
 
     def __init__(self):
         feature_size = 64
+        feature_channels = 256
         super().__init__(
             generator=MultiScaleGenerator(feature_channels),
             discriminator=MultiScaleMultiResDiscriminator(),
@@ -66,6 +67,7 @@ class MultiScaleMultiResGroupedFeaturesExperiment(Experiment):
     """
 
     def __init__(self):
+        feature_channels = 256
         feature_size = 64
         super().__init__(
             generator=MultiScaleGenerator(
@@ -85,6 +87,7 @@ class MultiScaleLowResOnlyExperiment(Experiment):
     """
 
     def __init__(self):
+        feature_channels = 256
         feature_size = 64
         super().__init__(
             generator=MultiScaleGenerator(feature_channels),

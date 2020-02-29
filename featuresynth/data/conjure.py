@@ -2,6 +2,13 @@ from hashlib import sha1
 import pickle
 import numpy as np
 import lmdb
+import struct
+
+
+class NoCache(Exception):
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
 
 
 class Wrapped(object):
@@ -16,6 +23,13 @@ class Wrapped(object):
 
 def hash_function(f):
     h = sha1()
+
+    if f.__closure__ is not None:
+        freevars = [x.cell_contents for x in f.__closure__]
+    else:
+        freevars = None
+
+    h.update(pickle.dumps(freevars))
     h.update(pickle.dumps(f.__code__.co_consts))
     h.update(f.__name__.encode())
     h.update(f.__code__.co_code)
@@ -37,13 +51,15 @@ def non_generator_func(f, h, collection, serialize, deserialize):
         key = f'{h}:{args_hash}'.encode()
         try:
             cached = deserialize(*collection[key])
-
             return cached
         except KeyError:
             pass
-        print(f'computing {f}')
-        result = f(*args, **kwargs)
-        collection[key] = serialize(result)
+
+        try:
+            result = f(*args, **kwargs)
+            collection[key] = serialize(result)
+        except NoCache as nc:
+            result = nc.value
         return result
 
     return x
@@ -51,12 +67,17 @@ def non_generator_func(f, h, collection, serialize, deserialize):
 
 def numpy_array_dumpb(arr):
     arr = np.ascontiguousarray(arr, dtype=np.float32)
-    return arr.data
+    shape = pickle.dumps(arr.shape)
+    shape_bytes = struct.pack('i', len(shape))
+    return memoryview(shape_bytes + shape + arr.tobytes())
+    # return arr.data
 
 
 def numpy_array_loadb(memview, txn):
-    raw = np.asarray(memview, dtype=np.uint8)
-    arr = raw.view(dtype=np.float32)
+    shape_len = struct.unpack('i', memview[:4])[0]
+    shape = pickle.loads(memview[4: 4 + shape_len])
+    raw = np.asarray(memview[4 + shape_len:], dtype=np.uint8)
+    arr = raw.view(dtype=np.float32).reshape(shape)
     return NumpyWrapper(arr, txn)
 
 
@@ -86,10 +107,6 @@ class NumpyWrapper(object):
     def shape(self):
         return self.arr.shape
 
-    def reshape(self, new_shape):
-        arr = self.arr.reshape(new_shape)
-        return NumpyWrapper(arr, self.txn)
-
     def __getitem__(self, item):
         data = self.arr[item].copy()
         self.txn.commit()
@@ -118,22 +135,47 @@ class LmdbCollection(object):
             raise KeyError(key)
         return value, txn
 
-
-collection = LmdbCollection('zdata')
-
-
-@cache(collection)
-def arbitrary(x):
-    a = 88
-    return (x / x.max()) - a
+# collection = LmdbCollection('zdata')
 
 
-rand = np.random.RandomState(seed=1)
-
-if __name__ == '__main__':
-    arr = rand.normal(0, 1, (10, 3))
-    processed = arbitrary(arr)
-    processed = processed.reshape((-1, 3))
-    print(processed.shape)
-    processed = processed[1:3]
-    print(processed)
+# def make(n):
+#     @cache(collection)
+#     def f(x):
+#         return (x / x.max()) + n
+#
+#     return f
+#
+#
+# # @cache(collection)
+# # def arbitrary(x):
+# #     a = 88
+# #     return (x / x.max()) - a
+#
+#
+# rand = np.random.RandomState(seed=1)
+#
+# if __name__ == '__main__':
+#     arr = rand.normal(0, 1, (11, 3))
+#     f1 = make(10)
+#     f2 = make(100)
+#
+#     a = f1(arr)
+#     a1 = f1(arr)
+#     print(a.shape, a1.shape)
+#
+#     print(a[1:3])
+#     print(a1[1:3])
+#
+#     b = f2(arr)
+#     b1 = f2(arr)
+#     print(b.shape, b1.shape)
+#
+#     print(b[1:3])
+#     print(b1[1:3])
+#
+#
+#     # processed = arbitrary(arr)
+#     # processed = processed.reshape((-1, 3))
+#     # print(processed.shape)
+#     # processed = processed[1:3]
+#     # print(processed)

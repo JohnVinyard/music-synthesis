@@ -7,27 +7,27 @@ import scipy
 from scipy.fftpack import dct, idct
 from scipy.signal import firwin
 
-total_samples = 16384
-band_sizes = [1024, 2048, 4096, 8192, total_samples]
+# total_samples = 16384
+# band_sizes = [1024, 2048, 4096, 8192, total_samples]
 
-feature_channels = 256
+# feature_channels = 256
 
-sr = zounds.SR11025()
-band = zounds.FrequencyBand(20, sr.nyquist)
-scale = zounds.GeometricScale(20, sr.nyquist - 20, 0.05, feature_channels)
+# sr = zounds.SR11025()
+# band = zounds.FrequencyBand(20, sr.nyquist)
+# scale = zounds.GeometricScale(20, sr.nyquist - 20, 0.05, feature_channels)
 
-chroma_scale = zounds.ChromaScale(band)
-chroma_basis = chroma_scale._basis(scale, zounds.HanningWindowingFunc()).T
-taps = 1024
+# chroma_scale = zounds.ChromaScale(band)
+# chroma_basis = chroma_scale._basis(scale, zounds.HanningWindowingFunc()).T
+# taps = 1024
 
-fb = zounds.learn.FilterBank(
-    sr,
-    taps,
-    scale,
-    np.linspace(0.25, 0.5, len(scale)),
-    normalize_filters=False,
-    a_weighting=False).to(device)
-fb.filter_bank = fb.filter_bank / 10
+# fb = zounds.learn.FilterBank(
+#     sr,
+#     taps,
+#     scale,
+#     np.linspace(0.25, 0.5, len(scale)),
+#     normalize_filters=False,
+#     a_weighting=False).to(device)
+# fb.filter_bank = fb.filter_bank / 10
 
 
 def generate_filter_banks(band_sizes):
@@ -72,16 +72,16 @@ def generate_filter_banks(band_sizes):
         yield bank, bandpass
 
 
-filter_banks, bandpass_filters = \
-    list(zip(*list(generate_filter_banks(band_sizes))))
+# filter_banks, bandpass_filters = \
+#     list(zip(*list(generate_filter_banks(band_sizes))))
 
-slices = []
-for filter_bank in filter_banks:
-    band = zounds.FrequencyBand(
-        filter_bank.scale.start_hz, filter_bank.scale.stop_hz)
-    subset = scale.get_slice(band)
-    slices.append(subset)
-print(slices)
+# slices = []
+# for filter_bank in filter_banks:
+#     band = zounds.FrequencyBand(
+#         filter_bank.scale.start_hz, filter_bank.scale.stop_hz)
+#     subset = scale.get_slice(band)
+#     slices.append(subset)
+# print(slices)
 
 
 def transform(samples, dev=device):

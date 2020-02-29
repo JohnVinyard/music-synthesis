@@ -27,7 +27,8 @@ class BaseAudioRepresentation(object):
         return spectrogram(audio)
 
     def listen(self):
-        return zounds.AudioSamples(self.to_audio()[0], self.samplerate)
+        return zounds.AudioSamples(self.to_audio()[0], self.samplerate)\
+            .pad_with_silence(zounds.Seconds(1))
 
 
 class RawAudio(BaseAudioRepresentation):

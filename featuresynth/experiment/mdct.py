@@ -1,6 +1,5 @@
 from ..audio import MDCT
 from ..discriminator import MDCTDiscriminator, TwoDimMDCTDiscriminator
-from ..feature import feature_channels
 from ..generator import \
     MDCTGenerator, TwoDimMDCTGenerator, UnconditionedGenerator, \
     GroupedMDCTGenerator
@@ -16,7 +15,9 @@ class MDCTExperiment(Experiment):
     really learns to produce tones or harmonics, resulting in scratchy, static-y
     generations
     """
+
     def __init__(self):
+        feature_channels = 256
         super().__init__(
             generator=MDCTGenerator(feature_channels),
             discriminator=MDCTDiscriminator(feature_channels),
@@ -28,7 +29,9 @@ class MDCTExperiment(Experiment):
 
 
 class GroupedMDCTExperiment(Experiment):
+
     def __init__(self):
+        feature_channels = 256
         super().__init__(
             generator=GroupedMDCTGenerator(feature_channels),
             discriminator=MDCTDiscriminator(feature_channels),
@@ -50,6 +53,7 @@ class TwoDimMDCTExperiment(Experiment):
     """
 
     def __init__(self):
+        feature_channels = 256
         super().__init__(
             generator=TwoDimMDCTGenerator(feature_channels),
             discriminator=MDCTDiscriminator(feature_channels),
@@ -72,6 +76,7 @@ class TwoDimMDCTDiscriminatorExperiment(Experiment):
     """
 
     def __init__(self):
+        feature_channels = 256
         super().__init__(
             generator=MDCTGenerator(feature_channels),
             discriminator=MDCTDiscriminator(feature_channels),
@@ -96,6 +101,7 @@ class FullTwoDimMDCTDiscriminatorExperiment(Experiment):
     """
 
     def __init__(self):
+        feature_channels = 256
         super().__init__(
             generator=TwoDimMDCTGenerator(feature_channels),
             discriminator=MDCTDiscriminator(feature_channels),

@@ -65,5 +65,5 @@ if __name__ == '__main__':
         feature_hop=256,
         feature_window=1024,
         training_sample_win=16384,
-        downsampling_ratios=[256, 512, 1024])
+        downsampling_ratios=[128, 256, 512])
     mine.report()

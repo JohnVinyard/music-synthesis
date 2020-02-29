@@ -105,7 +105,7 @@ class Report(object):
             return BytesIO(f.read())
 
     def generate(
-            self, data_source, anchor_feature, n_examples, sr, regenerate=True):
+            self, path, pattern, n_examples, regenerate=True):
         bucket = S3Bucket(self.bucket_name, 'us-west-1')
         cors = CorsConfig(bucket)
 
@@ -132,9 +132,11 @@ class Report(object):
             self.experiment = self.experiment.to(device)
             self.experiment.resume()
 
+            # batch_stream = islice(
+            #     self.experiment.batch_stream(1, data_source, anchor_feature),
+            #     n_examples)
             batch_stream = islice(
-                self.experiment.batch_stream(1, data_source, anchor_feature),
-                n_examples)
+                self.experiment.batch_stream(path, pattern, 1), n_examples)
 
             for batch in batch_stream:
                 base_name = uuid4().hex[:6]
@@ -142,6 +144,7 @@ class Report(object):
                 samples, features = self.experiment.preprocess_batch(batch)
 
                 real_spec = features[0].T
+                sr = self.experiment.samplerate
                 real_repr = self.experiment.from_audio(samples, sr)
                 features = torch.from_numpy(features).to(device)
                 fake = self.experiment.generator(features).data.cpu().numpy()

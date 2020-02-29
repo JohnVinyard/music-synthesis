@@ -366,3 +366,11 @@ class DDSPGenerator(nn.Module):
         #     return normalize(harmonic)
         x = normalize(harmonic + noise)[:, :, 4096:-4096]
         return x
+
+
+if __name__ == '__main__':
+    input_size = 16
+    g = MelGanGenerator(input_size, 256)
+    inp = torch.FloatTensor((1, 256, input_size)).normal_(0, 1)
+    x = g(inp)
+    print(x.shape)

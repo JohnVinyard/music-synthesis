@@ -1,9 +1,11 @@
 from ..train import GeneratorTrainer, DiscriminatorTrainer
-from ..feature import total_samples, feature_channels
 from .init import generator_init, discriminator_init
+from ..data import batch_stream
 from torch.optim import Adam
 import torch
 import numpy as np
+from itertools import cycle
+import zounds
 
 
 class BaseGanExperiment(object):
@@ -74,8 +76,16 @@ class Experiment(BaseGanExperiment):
             generator_loss,
             discriminator_loss,
             g_init=generator_init,
-            d_init=discriminator_init):
+            d_init=discriminator_init,
+            feature_funcs=None,
+            total_samples=16384,
+            feature_channels=256,
+            samplerate=zounds.SR11025()):
+
         super().__init__()
+
+        if feature_funcs is None:
+            raise ValueError('You must provide feature funcs')
 
         self.discriminator_init = d_init
         self.generator_init = g_init
@@ -114,6 +124,18 @@ class Experiment(BaseGanExperiment):
 
         self.__feature_size = feature_size
         self.__audio_repr_class = audio_repr_class
+
+        self.__anchor_feature = 'spectrogram'
+        self.__feature_funcs = feature_funcs
+
+        self.training_steps = cycle([
+            self.discriminator_trainer,
+            self.generator_trainer
+        ])
+
+        self.samplerate = samplerate
+        self.total_samples = total_samples
+        self.feature_channels = feature_channels
 
     def _apply_init(self, network, init_func):
         for name, weight in network.named_parameters():
@@ -162,10 +184,6 @@ class Experiment(BaseGanExperiment):
     def audio_representation(self, data, sr):
         return self.__audio_repr_class(data, sr)
 
-    def batch_stream(self, batch_size, data_source, anchor_feature):
-        return data_source.batch_stream(
-            batch_size, self.feature_spec, anchor_feature)
-
     def preprocess_batch(self, batch):
         samples, features = batch
 
@@ -178,9 +196,22 @@ class Experiment(BaseGanExperiment):
         features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
         return samples, features
 
+    # def batch_stream(self, batch_size, data_source, anchor_feature):
+    #     return data_source.batch_stream(
+    #         batch_size, self.feature_spec, anchor_feature)
+
+    def batch_stream(self, path, pattern, batch_size, feature_spec=None):
+        return batch_stream(
+            path,
+            pattern,
+            batch_size,
+            feature_spec or self.feature_spec,
+            self.__anchor_feature,
+            self.__feature_funcs)
+
     @property
     def feature_spec(self):
         return {
-            'audio': (total_samples, 1),
-            'spectrogram': (self.__feature_size, feature_channels)
+            'audio': (self.total_samples, 1),
+            'spectrogram': (self.__feature_size, self.feature_channels)
         }

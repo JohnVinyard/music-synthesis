@@ -1,9 +1,10 @@
 import lmdb
 import numpy as np
 import zounds
-from ..feature import \
-    compute_features_batched, compute_features, sr, total_samples
-from ..util.datasource import iter_files
+# from ..feature import \
+#     compute_features_batched, compute_features
+from .filesystem import iter_files
+from ..util import pad
 import concurrent.futures
 from random import choice
 from collections import defaultdict
@@ -177,7 +178,13 @@ class BaseDataStore(object):
 
 
 def preprocess_audio(samples, target_samplerate, min_samples):
-    samples = zounds.soundfile.resample(samples.mono, target_samplerate)
+    # samples = zounds.soundfile.resample(samples.mono, target_samplerate)
+
+    samples = librosa.resample(
+        samples.mono,
+        int(samples.samplerate),
+        int(target_samplerate))
+    samples = zounds.AudioSamples(samples, target_samplerate)
 
     # ensure there are at least min_samples
     if len(samples) < min_samples:
@@ -210,3 +217,95 @@ class DataStore(BaseDataStore):
         features = np.log(features + 1e-12).T.astype(np.float32)
 
         return {'audio': samples, 'spectrogram': features}
+
+
+# def batch_stream(self, batch_size, feature_spec, anchor_feature):
+#
+#     # build ratio spec
+#     anchor_size, anchor_channels = feature_spec[anchor_feature]
+#     ratio_spec = {}
+#     for feat, spec in feature_spec.items():
+#         size, channels = spec
+#         ratio_spec[feat] = spec + (size // anchor_size,)
+#
+#     all_keys = list(self.iter_keys())
+#     while True:
+#         batch = defaultdict(list)
+#         for _ in range(batch_size):
+#             key = choice(all_keys)
+#             aligned_features = self._get_random_aligned_features(
+#                 key, anchor_feature, anchor_size, ratio_spec)
+#             for feat, slce in aligned_features.items():
+#                 batch[feat].append(slce)
+#         finalized = tuple(
+#             np.concatenate(batch[feature], axis=0)
+#             for feature in feature_spec)
+#         yield finalized
+
+def random_slice(arr, feature_length):
+    try:
+        start = np.random.randint(0, len(arr) - feature_length)
+    except ValueError:
+        start = 0
+    end = start + feature_length
+    sliced = arr[start: end]
+    padded = pad(sliced, feature_length)
+    return padded, start, start + feature_length
+
+
+def batch_stream(
+        path,
+        pattern,
+        batch_size,
+        feature_spec,
+        anchor_feature,
+        feature_funcs):
+
+    # build ratio spec
+    anchor_spec = feature_spec[anchor_feature]
+    anchor_size, anchor_channels = anchor_spec
+    ratio_spec = {}
+    for feat, spec in feature_spec.items():
+        size, channels = spec
+        ratio_spec[feat] = spec + (size // anchor_size,)
+
+    def conform(x, spec):
+        size, channels = spec
+        return x.T.reshape((-1, channels, size))
+
+    all_files = list(iter_files(path, pattern))
+    while True:
+        batch = defaultdict(list)
+        for _ in range(batch_size):
+            file_path = choice(all_files)
+            func, args = feature_funcs[anchor_feature]
+
+            # this will return a numpy wrapper with an open transaction
+            # anchor = feature_funcs[anchor_feature](file_path)
+
+            anchor = func(file_path, *args)
+            anchor, start, end = random_slice(anchor, anchor_size)
+            anchor = conform(anchor, anchor_spec)
+            batch[anchor_feature].append(anchor)
+
+            # get all other features aligned with this one
+            for feat, spec in feature_spec.items():
+
+                if feat == anchor_feature:
+                    continue
+
+                ratio = ratio_spec[feat][2]
+                ns = start * ratio
+                ne = end * ratio
+                expected_length = ne - ns
+                func, args = feature_funcs[feat]
+                # feat_data = feature_funcs[feat](file_path)[ns: ne]
+                feat_data = func(file_path, *args)[ns: ne]
+                padded = pad(feat_data, expected_length)
+                padded = conform(padded, spec)
+                batch[feat].append(padded)
+
+        finalized = tuple(
+            np.concatenate(batch[feature], axis=0)
+            for feature in feature_spec)
+        yield finalized

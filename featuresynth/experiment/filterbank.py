@@ -4,13 +4,10 @@ from ..discriminator import \
     LowResFilterBankDiscriminator
 from ..generator import FilterBankGenerator, ResidualStackFilterBankGenerator
 from .experiment import Experiment
-from ..feature import sr
 from ..loss import mel_gan_gen_loss, mel_gan_disc_loss
 import zounds
 
-scale = zounds.MelScale(zounds.FrequencyBand(20, sr.nyquist), 128)
-filter_bank = zounds.learn.FilterBank(
-    sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
+
 
 """
 https://openreview.net/pdf?id=9jTbNbBNw0
@@ -25,9 +22,15 @@ Things to try:
 """
 
 
+
 class LowResFilterBankExperiment(Experiment):
     def __init__(self):
         feature_size = 64
+        sr = zounds.SR11025()
+        scale = zounds.MelScale(zounds.FrequencyBand(20, sr.nyquist), 128)
+        filter_bank = zounds.learn.FilterBank(
+            sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
+
         super().__init__(
             generator=FilterBankGenerator(filter_bank),
             discriminator=LowResFilterBankDiscriminator(filter_bank),
@@ -45,6 +48,10 @@ class ResidualStackFilterBankExperiment(Experiment):
     """
     def __init__(self):
         feature_size = 64
+        sr = zounds.SR11025()
+        scale = zounds.MelScale(zounds.FrequencyBand(20, sr.nyquist), 128)
+        filter_bank = zounds.learn.FilterBank(
+            sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
         super().__init__(
             generator=ResidualStackFilterBankGenerator(filter_bank),
             discriminator=FilterBankDiscriminator(filter_bank),
@@ -64,6 +71,10 @@ class LargeReceptiveFieldFilterBankExperiment(Experiment):
 
     def __init__(self):
         feature_size = 64
+        sr = zounds.SR11025()
+        scale = zounds.MelScale(zounds.FrequencyBand(20, sr.nyquist), 128)
+        filter_bank = zounds.learn.FilterBank(
+            sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
         super().__init__(
             generator=FilterBankGenerator(filter_bank),
             discriminator=LargeReceptiveFieldFilterBankDiscriminator(
@@ -89,6 +100,10 @@ class FilterBankExperiment(Experiment):
 
     def __init__(self):
         feature_size = 64
+        sr = zounds.SR11025()
+        scale = zounds.MelScale(zounds.FrequencyBand(20, sr.nyquist), 128)
+        filter_bank = zounds.learn.FilterBank(
+            sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
         super().__init__(
             generator=FilterBankGenerator(filter_bank),
             discriminator=FilterBankDiscriminator(filter_bank),
