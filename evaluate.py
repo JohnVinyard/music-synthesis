@@ -3,18 +3,15 @@ from itertools import cycle
 import torch
 import zounds
 
-from featuresynth.data import DataStore
 import featuresynth.experiment
 from featuresynth.util import device
 from featuresynth.experiment import Report
 from featuresynth.train import training_loop
 
-import numpy as np
 import argparse
 
 path = '/hdd/LJSpeech-1.1'
 pattern = '*.wav'
-ds = DataStore('ljspeech', path, pattern=pattern, max_workers=2)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -63,10 +60,9 @@ if __name__ == '__main__':
     if args.report:
         report = Report(experiment)
         report.generate(
-            ds,
-            'spectrogram',
+            path,
+            pattern,
             args.report_examples,
-            experiment.samplerate,
             regenerate=not args.report_source_update_only)
     else:
         if args.resume:
@@ -76,26 +72,15 @@ if __name__ == '__main__':
         app.start_in_thread(8888)
 
         if args.overfit:
-            # batch_stream = cycle([next(ds.batch_stream(
-            #     1, experiment.feature_spec, experiment.anchor_feature))])
             batch_stream = cycle([next(
                 experiment.batch_stream(path, pattern, 1))])
         else:
-            # batch_stream = ds.batch_stream(
-            #     args.batch_size,
-            #     experiment.feature_spec,
-            #     experiment.anchor_feature)
             batch_stream = experiment.batch_stream(
                 path, pattern, args.batch_size)
 
-        # steps = cycle([
-        #     experiment.discriminator_trainer,
-        #     experiment.generator_trainer
-        # ])
 
         steps = experiment.training_steps
 
-        # BEGIN NEW TRAINING CODE =============================================
         def log_features(exp, pre, result, iteration, elapsed):
             _, features = pre
             return {'real_spec': features[0].T}
@@ -127,7 +112,7 @@ if __name__ == '__main__':
             """
 
             # TODO: Use elapsed time instead
-            if iteration % 1000 != 0:
+            if iteration == 0 or iteration % 100 != 0:
                 return None
 
             bs = exp.batch_stream(
@@ -171,35 +156,3 @@ if __name__ == '__main__':
 
             minutes = elapsed_time.total_seconds() / 60
             print(f'Batch: {i}, Time: {minutes}, Loss: {scalars}')
-        # END NEW TRAINING CODE ================================================
-
-        # batch_count = 0
-        # for batch in batch_stream:
-        #
-        #     # preprocess batch
-        #     samples, features = experiment.preprocess_batch(batch)
-        #
-        #     # log something
-        #     real_spec = features[0].T
-        #
-        #     # log something
-        #     real = experiment.from_audio(samples, sr)
-        #
-        #     # move batch to GPU
-        #     samples = torch.from_numpy(real.data).to(device)
-        #     features = torch.from_numpy(features).to(device)
-        #
-        #     # fetch and execute next training step
-        #     step = next(steps)
-        #     data = step(samples, features)
-        #
-        #     # log loss to console
-        #     print({k: v for k, v in data.items() if 'loss' in k})
-        #
-        #     # log something
-        #     try:
-        #         fake = experiment.audio_representation(data['fake'], sr)
-        #     except KeyError:
-        #         pass
-        #
-        #     batch_count += 1

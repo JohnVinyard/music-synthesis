@@ -196,10 +196,6 @@ class Experiment(BaseGanExperiment):
         features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
         return samples, features
 
-    # def batch_stream(self, batch_size, data_source, anchor_feature):
-    #     return data_source.batch_stream(
-    #         batch_size, self.feature_spec, anchor_feature)
-
     def batch_stream(self, path, pattern, batch_size, feature_spec=None):
         return batch_stream(
             path,

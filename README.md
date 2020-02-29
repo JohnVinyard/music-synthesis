@@ -20,22 +20,17 @@
 - different disc init
 - weight norm in disc
 - weight norm in generator
-- higher frequency disc judgements
-- higher frequency generator spec
-- smaller training window (4096 samples)
+- reflection padding 
 
 
 # Tools
-- conjure
-- ~~ensure dimensions (better pad function)~~
 - experiments configured in JSON file
 - experiments that run some basic tests?
 
 
 # Pain Points
-- I'm having to recompute features
 - I'm having to change network implementations
-- I will have to change the code for previewing audio
+
 
 
 
