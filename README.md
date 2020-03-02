@@ -17,10 +17,15 @@
     - `(batch, channels, octave, f0, time)`
 
 # Path to MelGAN
-- different disc init
+- ~~different disc init~~
 - weight norm in disc
 - weight norm in generator
-- reflection padding 
+- ~~reflection padding~~
+- ~~change to hinge loss~~
+- feature loss  
+- ~~more accurate feature computation~~
+- more accurate residual block implementation
+
 
 
 # Tools
@@ -31,6 +36,9 @@
 # Pain Points
 - I'm having to change network implementations
 
+
+# TODO
+- finish basic deploy
 
 
 
@@ -57,3 +65,9 @@ The most obvious difference that could aid in speech intelligibility is that the
 # Thursday, Feb 27, 2020 9AM
 After ~12 hours of training, using spectrograms sampled at ~80hz still resulted
 in less than intelligible speech.
+
+# Monday, March 2, 2020 10AM
+Trying out MelGAN code verbatim, and realized there was an important difference
+between my initialization code and theirs:  I was also initializing biases with
+normal distributions, which seemed to completely impede training.  Only 
+initializing weights did the trick.  

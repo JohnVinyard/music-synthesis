@@ -23,7 +23,8 @@ class MelGanGenerator(nn.Module):
         self.input_size = input_size
 
         self.main = nn.Sequential(
-            weight_norm(nn.Conv1d(in_channels, 512, 7, 1, 3)),
+            nn.ReflectionPad1d(3),
+            weight_norm(nn.Conv1d(in_channels, 512, 7, 1, padding=0)),
             nn.LeakyReLU(0.2),
 
             weight_norm(nn.ConvTranspose1d(512, 256, 16, 8, 4)),

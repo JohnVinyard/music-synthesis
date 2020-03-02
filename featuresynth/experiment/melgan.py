@@ -32,7 +32,7 @@ class MultiScaleMelGanExperiment(Experiment):
             generator_loss=mel_gan_gen_loss,
             discriminator_loss=mel_gan_disc_loss,
             g_init=basic_init,
-            d_init=discriminator_init,
+            d_init=basic_init,
             feature_funcs={
                 'audio': (audio, (samplerate,)),
                 'spectrogram': (spectrogram, (samplerate, n_fft, hop, n_mels))
@@ -42,14 +42,14 @@ class MultiScaleMelGanExperiment(Experiment):
             samplerate=samplerate)
 
 
-class MelGanExperiment(Experiment):
-    def __init__(self):
-        feature_size = 64
-        super().__init__(
-            generator=MelGanGenerator(feature_size, feature_channels),
-            discriminator=FullDiscriminator(),
-            learning_rate=1e-4,
-            feature_size=feature_size,
-            audio_repr_class=RawAudio,
-            generator_loss=mel_gan_gen_loss,
-            discriminator_loss=mel_gan_disc_loss)
+# class MelGanExperiment(Experiment):
+#     def __init__(self):
+#         feature_size = 64
+#         super().__init__(
+#             generator=MelGanGenerator(feature_size, feature_channels),
+#             discriminator=FullDiscriminator(),
+#             learning_rate=1e-4,
+#             feature_size=feature_size,
+#             audio_repr_class=RawAudio,
+#             generator_loss=mel_gan_gen_loss,
+#             discriminator_loss=mel_gan_disc_loss)

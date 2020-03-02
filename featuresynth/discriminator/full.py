@@ -1,12 +1,7 @@
-import zounds
-import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.init import calculate_gain, xavier_normal_
-from featuresynth.util.modules import DilatedStack
-import numpy as np
 from torch.nn.utils import weight_norm
-
 
 def weight_norm(x):
     return x
@@ -43,5 +38,3 @@ class FullDiscriminator(nn.Module):
             features.append(x)
         x = self.judge(x)
         return features, x
-
-

@@ -6,6 +6,7 @@ import torch
 import numpy as np
 from itertools import cycle
 import zounds
+import librosa
 
 
 class BaseGanExperiment(object):
@@ -101,12 +102,12 @@ class Experiment(BaseGanExperiment):
         self.__g = generator
         self._apply_init(self.__g, self.generator_init)
         self.__g_optim = Adam(
-            self.__g.parameters(), lr=learning_rate, betas=(0, 0.9))
+            self.__g.parameters(), lr=learning_rate, betas=(0.5, 0.9))
 
         self.__d = discriminator
         self._apply_init(self.__d, self.discriminator_init)
         self.__d_optim = Adam(
-            self.__d.parameters(), lr=learning_rate, betas=(0, 0.9))
+            self.__d.parameters(), lr=learning_rate, betas=(0.5, 0.9))
 
         self.__g_trainer = GeneratorTrainer(
             self.__g,
@@ -188,12 +189,15 @@ class Experiment(BaseGanExperiment):
         samples, features = batch
 
         # max one normalization for samples
-        samples /= np.abs(samples).max(axis=-1, keepdims=True) + 1e-12
+        # samples /= np.abs(samples).max(axis=-1, keepdims=True) + 1e-12
+
+        # This matches the MelGAN implementation
+        samples = librosa.util.normalize(samples, axis=-1) * 0.95
 
         # max one normalization for features, which may have had log scaling
         # applied and might be negative
-        features -= features.min(axis=(1, 2), keepdims=True)
-        features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
+        # features -= features.min(axis=(1, 2), keepdims=True)
+        # features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
         return samples, features
 
     def batch_stream(self, path, pattern, batch_size, feature_spec=None):

@@ -1,5 +1,3 @@
-torch
-zounds
+zounds>=1.55.0
 librosa
 lws
-numpy

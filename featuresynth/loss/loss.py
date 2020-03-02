@@ -21,7 +21,7 @@ def hinge_discriminator_loss(r_j, f_j):
 def mel_gan_disc_loss(
         real_judgements,
         fake_judgements,
-        gan_loss=least_squares_disc_loss):
+        gan_loss=hinge_discriminator_loss):
     return sum(gan_loss(r, f) for r, f in zip(real_judgements, fake_judgements))
 
 
@@ -70,7 +70,7 @@ def mel_gan_gen_loss(
         fake_features,
         real_judgements,
         fake_judgements,
-        gan_loss=least_squares_generator_loss,
+        gan_loss=hinge_generator_loss,
         feature_loss_weight=10):
 
     j_loss = sum(gan_loss(f) for r, f in zip(real_judgements, fake_judgements))

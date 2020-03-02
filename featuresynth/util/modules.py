@@ -3,6 +3,7 @@ from torch.nn import functional as F
 import torch
 import math
 import numpy as np
+from torch.nn.utils import weight_norm
 
 
 def flatten_channels(x, channels_as_time=False):
@@ -32,9 +33,6 @@ def normalize(l, scaling=1):
     l = l / (mx + 1e-8)
     l = l.view(*orig_shape)
     return l * scaling
-
-
-
 
 
 def zero_grad(*optims):
@@ -311,6 +309,10 @@ class LowResSpectrogramDiscriminator(nn.Module):
         return features, j
 
 
+def weight_norm(x):
+    return x
+
+
 class ResidualAtom(nn.Module):
     def __init__(self, channels, dilation):
         super().__init__()
@@ -318,14 +320,14 @@ class ResidualAtom(nn.Module):
         self.channels = channels
         padding = dilation
         self.main = nn.Sequential(
-            nn.Conv1d(
+            weight_norm(nn.Conv1d(
                 channels,
                 channels,
                 3,
                 1,
                 dilation=dilation,
-                padding=padding),
-            nn.Conv1d(channels, channels, 3, 1, 1)
+                padding=padding)),
+            weight_norm(nn.Conv1d(channels, channels, 3, 1, 1))
         )
 
     def forward(self, x):
