@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
         def log_real_audio(exp, pre, result, iteration, elapsed):
             samples, _ = pre
-            return {'real': experiment.from_audio(samples, exp.samplerate)}
+            return {'real': experiment.audio_representation(samples, exp.samplerate)}
 
 
         def log_loss(exp, pre, result, iteration, elapsed):
@@ -119,7 +119,7 @@ if __name__ == '__main__':
             batch = next(bs)
             batch = exp.preprocess_batch(batch)
             samples, features = batch
-            real = exp.from_audio(samples, exp.samplerate)
+            real = exp.audio_representation(samples, exp.samplerate)
             tensor = torch.from_numpy(features).to(device)
             fake = exp.generator(tensor).data.cpu().numpy()
             fake = exp.audio_representation(fake, exp.samplerate)

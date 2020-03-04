@@ -51,14 +51,21 @@ class RawAudio(BaseAudioRepresentation):
 
 
 class MDCT(BaseAudioRepresentation):
+    window_size = 512
+    hop_size = 256
+
     def __init__(self, data, samplerate):
         super().__init__(data, samplerate)
 
     @classmethod
+    def mdct_bins(cls):
+        return cls.window_size // 2
+
+    @classmethod
     def from_audio(cls, samples, samplerate):
         # (batch, time, channels) => (batch, channels, time)
-        coeffs = mdct(samples, 512, 256).transpose((0, 2, 1))
-        coeffs /= np.abs(coeffs).max(axis=(1, 2), keepdims=True) + 1e-12
+        coeffs = mdct(
+            samples, cls.window_size, cls.hop_size).transpose((0, 2, 1))
         return cls(coeffs, samplerate)
 
     def to_audio(self):

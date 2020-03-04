@@ -54,22 +54,22 @@ class GroupedMDCTGenerator(nn.Module):
         self.to_frames = nn.Conv1d(4096, 256, 7, 1, 3, groups=256)
         self.to_frames_gate = nn.Conv1d(4096, 256, 7, 1, 3, groups=256)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'frames' in name:
-                    xavier_normal_(weight.data, calculate_gain('tanh'))
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
+    # def initialize_weights(self):
+    #     for name, weight in self.named_parameters():
+    #         if weight.data.dim() > 2:
+    #             if 'frames' in name:
+    #                 xavier_normal_(weight.data, calculate_gain('tanh'))
+    #             else:
+    #                 xavier_normal_(
+    #                     weight.data, calculate_gain('leaky_relu', 0.2))
+    #     return self
 
     def forward(self, x):
         batch, channels, time = x.shape
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
         x = F.tanh(self.to_frames(x)) * F.tanh(self.to_frames_gate(x))
-        x = x.view(batch, channels, time)
+        x = x.view(batch, -1, time)
         return x
 
 

@@ -6,8 +6,9 @@ import torch
 
 
 class MDCTDiscriminator(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, feature_size):
         super().__init__()
+        self.feature_size = feature_size
         self.in_channels = in_channels
         self.main = nn.Sequential(
             nn.Conv1d(in_channels, 512, 7, 1, 3),
@@ -19,27 +20,27 @@ class MDCTDiscriminator(nn.Module):
 
         self.med_res = LowResSpectrogramDiscriminator(
             freq_bins=64,
-            time_steps=32,
-            n_judgements=8,
+            time_steps=feature_size // 2,
+            n_judgements=4,
             kernel_size=7,
             max_channels=1024)
 
         self.low_res = LowResSpectrogramDiscriminator(
             freq_bins=32,
-            time_steps=16,
-            n_judgements=4,
+            time_steps=feature_size // 4,
+            n_judgements=2,
             kernel_size=3,
             max_channels=1024)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'judge' in name:
-                    xavier_normal_(weight.data, calculate_gain('tanh'))
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
+    # def initialize_weights(self):
+    #     for name, weight in self.named_parameters():
+    #         if weight.data.dim() > 2:
+    #             if 'judge' in name:
+    #                 xavier_normal_(weight.data, calculate_gain('tanh'))
+    #             else:
+    #                 xavier_normal_(
+    #                     weight.data, calculate_gain('leaky_relu', 0.2))
+    #     return self
 
     def full_resolution(self, x):
         features = []

@@ -185,7 +185,7 @@ class Experiment(BaseGanExperiment):
 
     def preprocess_batch(self, batch):
         samples, features = batch
-
+        samples = self.from_audio(samples, self.samplerate).data
         return samples, features
 
     def batch_stream(self, path, pattern, batch_size, feature_spec=None):
