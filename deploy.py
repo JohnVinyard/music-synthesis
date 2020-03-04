@@ -43,6 +43,7 @@ class ConfiguredBox(Requirement):
             connection.run(
                 'conda install -c hcc -c conda-forge libsndfile=1.0.28 libsamplerate=0.1.8 libflac=1.3.1 libogg=1.3.2 -y')
             with connection.cd('music-synthesis'):
+                connection.run('pip install --upgrade pip')
                 connection.run('pip install -r requirements.txt')
                 connection.run('python test.py')
 

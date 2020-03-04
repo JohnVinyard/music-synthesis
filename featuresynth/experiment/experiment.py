@@ -3,10 +3,8 @@ from .init import generator_init, discriminator_init
 from ..data import batch_stream
 from torch.optim import Adam
 import torch
-import numpy as np
 from itertools import cycle
 import zounds
-import librosa
 
 
 class BaseGanExperiment(object):
@@ -81,10 +79,14 @@ class Experiment(BaseGanExperiment):
             feature_funcs=None,
             total_samples=16384,
             feature_channels=256,
+            inference_sequence_factor=4,
             samplerate=zounds.SR11025()):
 
         super().__init__()
 
+        # how much longer than the test sequence should the inference sequence
+        # be?
+        self.inference_sequence_factor = inference_sequence_factor
         if feature_funcs is None:
             raise ValueError('You must provide feature funcs')
 
@@ -188,16 +190,6 @@ class Experiment(BaseGanExperiment):
     def preprocess_batch(self, batch):
         samples, features = batch
 
-        # max one normalization for samples
-        # samples /= np.abs(samples).max(axis=-1, keepdims=True) + 1e-12
-
-        # This matches the MelGAN implementation
-        samples = librosa.util.normalize(samples, axis=-1) * 0.95
-
-        # max one normalization for features, which may have had log scaling
-        # applied and might be negative
-        # features -= features.min(axis=(1, 2), keepdims=True)
-        # features /= features.max(axis=(1, 2), keepdims=True) + 1e-12
         return samples, features
 
     def batch_stream(self, path, pattern, batch_size, feature_spec=None):
@@ -215,3 +207,11 @@ class Experiment(BaseGanExperiment):
             'audio': (self.total_samples, 1),
             'spectrogram': (self.__feature_size, self.feature_channels)
         }
+
+    @property
+    def inference_spec(self):
+        inf = {}
+        for k, v in self.feature_spec.items():
+            size, channels = v
+            inf[k] = (size * self.inference_sequence_factor, channels)
+        return inf

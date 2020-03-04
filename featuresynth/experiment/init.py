@@ -1,5 +1,7 @@
 from torch.nn.init import xavier_normal_, calculate_gain
 
+# TODO: All of these initialization functions need to be redone to avoid
+# problems with setting biases
 
 def basic_init(name, weight):
     raise Exception('Do not use this until biases can be ignored')

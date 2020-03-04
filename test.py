@@ -4,6 +4,8 @@ from featuresynth.util import device
 import torch
 
 if __name__ == '__main__':
+    print(torch.__version__)
+    print(torch.cuda.is_available())
     print(zounds.SR11025())
     arr = np.random.normal(0, 1, 100)
     t = torch.from_numpy(arr).to(device)

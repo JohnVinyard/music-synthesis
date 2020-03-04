@@ -42,9 +42,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--report-source-update-only',
         action='store_true')
-    # parser.add_argument(
-    #     '--populate',
-    #     action='store_true')
     args = parser.parse_args()
 
     experiment = getattr(featuresynth.experiment, args.experiment)()
@@ -55,8 +52,6 @@ if __name__ == '__main__':
 
     experiment = experiment.to(device)
 
-    # if args.populate:
-    #     ds.populate()
     if args.report:
         report = Report(experiment)
         report.generate(
@@ -119,10 +114,8 @@ if __name__ == '__main__':
                 path=path,
                 pattern=pattern,
                 batch_size=1,
-                feature_spec={
-                    'audio': (32768, 1),
-                    'spectrogram': (128, experiment.feature_channels)
-                })
+                feature_spec=exp.inference_spec)
+
             batch = next(bs)
             batch = exp.preprocess_batch(batch)
             samples, features = batch

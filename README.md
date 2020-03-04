@@ -1,47 +1,3 @@
-# TODO
-- try MelGAN with higher discriminator sampling rate - NOPE
-- *try original formula with LJ Speech dataset*
-- try original formula with different disc init
-- try original formula with weight norm
-- try MelGAN (as published) on LJ Speech
-- try MelGAN (as published) on TIMIT (do shorter windows generalize better?)
-- try original formula with TIMIT and conditional discriminator
-- try filterbank discriminator original formula
-- think about what it means that multiscale formulation performs well on 
-    this many speakers
-- try MelGAN with filter lengths that match given different sampling rate
-- AWS training
-- FFT models
-- look at tensorboard
-- organize spectrogram differently, with octaves grouped together
-    - `(batch, channels, octave, f0, time)`
-
-# Path to MelGAN
-- ~~different disc init~~
-- weight norm in disc
-- weight norm in generator
-- ~~reflection padding~~
-- ~~change to hinge loss~~
-- feature loss  
-- ~~more accurate feature computation~~
-- more accurate residual block implementation
-
-
-
-# Tools
-- experiments configured in JSON file
-- experiments that run some basic tests?
-
-
-# Pain Points
-- I'm having to change network implementations
-
-
-# TODO
-- finish basic deploy
-
-
-
 # Saturday, Feb 22, 2020 11AM
 Starting to investigate whether my choice of frequency scale is causing 
 intelligibility problems with the speech I'm trying to generate.  Once I can 
@@ -71,3 +27,33 @@ Trying out MelGAN code verbatim, and realized there was an important difference
 between my initialization code and theirs:  I was also initializing biases with
 normal distributions, which seemed to completely impede training.  Only 
 initializing weights did the trick.  
+
+# Wednesday, March 4, 2020 9AM
+I'm now fairly confident I'm reproducing MelGAN results.  The last adjustment 
+was to ensure that time-domain audio and spectorgrams were not being scaled
+  independently.  The original MelGAN experiment also augments data by randomly
+  varying each samples amplitude.  I'm skeptical about the contribution of this
+  augmentation, but I've replicated it for now.  Next, moving on to trying out
+  some of my own models with stronger audio priors.
+  
+
+# TODO
+- fix initialization code
+- get all winner models working with newest experiment format
+- FFT models
+- zounds build
+- deploy script
+- try MelGAN (as published) on LJSpeech 
+- try MelGAN (as published) on TIMIT (do shorter windows generalize better?)
+- try original formula with TIMIT and conditional discriminator
+- try filterbank discriminator original formula on LJSpeech
+- think about what it means that multiscale formulation performs well on 
+    this many speakers
+- AWS training
+- look at tensorboard
+- organize spectrogram differently, with octaves grouped together
+    - `(batch, channels, octave, f0, time)`
+
+# Tools
+- experiments configured in JSON file
+- experiments that run some basic tests?

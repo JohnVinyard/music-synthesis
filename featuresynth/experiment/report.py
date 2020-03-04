@@ -132,11 +132,9 @@ class Report(object):
             self.experiment = self.experiment.to(device)
             self.experiment.resume()
 
-            # batch_stream = islice(
-            #     self.experiment.batch_stream(1, data_source, anchor_feature),
-            #     n_examples)
-            batch_stream = islice(
-                self.experiment.batch_stream(path, pattern, 1), n_examples)
+            bs = self.experiment.batch_stream(
+                path, pattern, 1, self.experiment.inference_spec)
+            batch_stream = islice(bs, n_examples)
 
             for batch in batch_stream:
                 base_name = uuid4().hex[:6]

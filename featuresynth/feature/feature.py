@@ -6,7 +6,6 @@ from torch import nn
 import torch
 from librosa.filters import mel as librosa_mel_fn
 from torch.nn import functional as F
-from ..util import device
 
 
 class Audio2Mel(nn.Module):
@@ -63,8 +62,7 @@ class Audio2Mel(nn.Module):
 
 data_cache = LmdbCollection('datacache')
 
-
-audio_to_mel = Audio2Mel()
+# audio_to_mel = Audio2Mel().to(device)
 
 @cache(data_cache)
 def audio(file_path, samplerate):
@@ -74,25 +72,22 @@ def audio(file_path, samplerate):
     return samples.astype(np.float32)
 
 
-# @cache(data_cache)
-# def spectrogram(file_path, samplerate, n_fft, hop, n_mels):
-#     samples = audio(file_path, samplerate)
-#     spec = librosa.feature.melspectrogram(
-#         samples,
-#         sr=int(samplerate),
-#         n_fft=n_fft,
-#         hop_length=hop,
-#         n_mels=n_mels)
-#     # spec = np.log(spec + 1e-12)
-#     spec = np.log10(np.clip(spec, a_min=1e-5, a_max=np.inf))
-#     spec = spec.T.astype(np.float32)
-#     return spec
-
-
-@cache(data_cache)
-def spectrogram(file_path, samplerate, n_fft, hop, n_mels):
-    # slicing will make a copy and end the transaction for cached data
+def normalized_and_augmented_audio(file_path, samplerate):
     samples = audio(file_path, samplerate)[:]
-    spec = audio_to_mel(samples)
-    spec = spec.data.cpu().numpy().T.astype(np.float32)
-    return spec
+    samples = librosa.util.normalize(samples, axis=-1) * 0.95
+    amp = np.random.uniform(low=0.3, high=1.0)
+    samples = samples * amp
+    return samples
+
+
+
+def make_spectrogram_func(audio_func, samplerate, n_fft, hop, n_mels):
+    atm = Audio2Mel(n_fft, hop, n_fft, int(samplerate), n_mels)
+
+    def func(file_path, samplerate):
+        samples = audio_func(file_path, samplerate)
+        spec = atm(samples)
+        spec = spec.data.cpu().numpy().T.astype(np.float32)
+        return spec
+
+    return func

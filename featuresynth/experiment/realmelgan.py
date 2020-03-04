@@ -6,8 +6,7 @@ import numpy as np
 from ..audio import RawAudio
 from .experiment import Experiment
 from ..loss import mel_gan_disc_loss, hinge_generator_loss
-from .init import basic_init
-from ..feature import audio, spectrogram
+from ..feature import normalized_and_augmented_audio, make_spectrogram_func
 import zounds
 
 
@@ -165,14 +164,6 @@ class Discriminator(nn.Module):
         return features, judgements
 
 
-# loss_feat = 0
-# feat_weights = 4.0 / (args.n_layers_D + 1)
-# D_weights = 1.0 / args.num_D
-# wt = D_weights * feat_weights
-# for i in range(args.num_D):
-#     for j in range(len(D_fake[i]) - 1):
-#         loss_feat += wt * F.l1_loss(D_fake[i][j], D_real[i][j].detach())
-
 
 def real_mel_gan_feature_loss(real_features, fake_features):
     loss = 0
@@ -222,23 +213,27 @@ class RealMelGanExperiment(Experiment):
         hop = 256
         total_samples = 8192
 
+        spec_func = make_spectrogram_func(
+            normalized_and_augmented_audio, samplerate, n_fft, hop, n_mels)
+
         super().__init__(
             Generator(n_mels, size, n_residual_layers=3),
             Discriminator(num_D=3, ndf=16, n_layers=4, downsampling_factor=4),
             learning_rate=1e-4,
             feature_size=size,
             audio_repr_class=RawAudio,
+            # TODO: I should be able to swap out loss functions more easily
             generator_loss=mel_gan_gen_loss,
             discriminator_loss=mel_gan_disc_loss,
             g_init=no_init,
             d_init=no_init,
             feature_funcs={
-                'audio': (audio, (samplerate,)),
-                'spectrogram': (spectrogram, (samplerate, n_fft, hop, n_mels))
+                'audio': (normalized_and_augmented_audio, (samplerate,)),
+                'spectrogram': (spec_func, (samplerate,))
             },
             total_samples=total_samples,
             feature_channels=n_mels,
-            samplerate=samplerate
-        )
+            samplerate=samplerate,
+            inference_sequence_factor=4)
 
 
