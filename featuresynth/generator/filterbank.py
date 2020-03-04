@@ -1,8 +1,7 @@
 from torch import nn
 from torch.nn.init import xavier_normal_, calculate_gain
 from torch.nn import functional as F
-from ..util.modules import \
-    UpsamplingStack, LearnedUpSample, UpSample, ResidualStack
+from ..util.modules import UpsamplingStack, LearnedUpSample, ResidualStack
 
 
 class ResidualStackFilterBankGenerator(nn.Module):
@@ -62,32 +61,33 @@ class ResidualStackFilterBankGenerator(nn.Module):
 
 
 class FilterBankGenerator(nn.Module):
-    def __init__(self, filter_bank):
+    def __init__(self, filter_bank, in_size, out_size, in_channels):
         super().__init__()
+        self.in_channels = in_channels
+        self.out_size = out_size
+        self.in_size = in_size
+        self.channels = 256
+
         self._filter_bank = [filter_bank]
         self.main = UpsamplingStack(
-            64,
-            16384,
+            self.in_size,
+            self.out_size,
             2,
             self._build_layer)
-        self.to_frames = nn.Conv1d(256, 128, 7, 1, 3)
+        self.to_frames = nn.Conv1d(
+            self.channels, self.filter_bank.n_bands, 7, 1, 3)
 
     def _build_layer(self, i, curr_size, out_size, first, last):
-        return LearnedUpSample(256, 256, 8, 2, lambda x: F.leaky_relu(x, 0.2))
+        return LearnedUpSample(
+            self.in_channels if first else self.channels,
+            self.channels,
+            8,
+            2,
+            lambda x: F.leaky_relu(x, 0.2))
 
     def to(self, device):
         self.filter_bank.to(device)
         return super().to(device)
-
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'to_frames' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
 
     @property
     def filter_bank(self):

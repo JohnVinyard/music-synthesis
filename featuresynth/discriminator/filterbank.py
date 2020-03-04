@@ -132,8 +132,9 @@ class LargeReceptiveFieldFilterBankDiscriminator(nn.Module):
 
 
 class FilterBankDiscriminator(nn.Module):
-    def __init__(self, filter_bank):
+    def __init__(self, filter_bank, input_size):
         super().__init__()
+        self.input_size = input_size
         self._filter_bank = [filter_bank]
 
         in_channels = self.filter_bank.filter_bank.shape[0]
@@ -169,16 +170,6 @@ class FilterBankDiscriminator(nn.Module):
     def to(self, device):
         self.filter_bank.to(device)
         return super().to(device)
-
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'judge' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
 
     def full_resolution(self, x):
         features = []

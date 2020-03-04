@@ -1,5 +1,5 @@
 from ..train import GeneratorTrainer, DiscriminatorTrainer
-from .init import generator_init, discriminator_init
+from .init import weights_init
 from ..data import batch_stream
 from torch.optim import Adam
 import torch
@@ -74,8 +74,8 @@ class Experiment(BaseGanExperiment):
             audio_repr_class,
             generator_loss,
             discriminator_loss,
-            g_init=generator_init,
-            d_init=discriminator_init,
+            g_init=weights_init,
+            d_init=weights_init,
             feature_funcs=None,
             total_samples=16384,
             feature_channels=256,
@@ -102,12 +102,12 @@ class Experiment(BaseGanExperiment):
                 'initialize_weights() method on discriminators is deprecated')
 
         self.__g = generator
-        self._apply_init(self.__g, self.generator_init)
+        self.__g.apply(g_init)
         self.__g_optim = Adam(
             self.__g.parameters(), lr=learning_rate, betas=(0.5, 0.9))
 
         self.__d = discriminator
-        self._apply_init(self.__d, self.discriminator_init)
+        self.__d.apply(d_init)
         self.__d_optim = Adam(
             self.__d.parameters(), lr=learning_rate, betas=(0.5, 0.9))
 
@@ -139,10 +139,6 @@ class Experiment(BaseGanExperiment):
         self.samplerate = samplerate
         self.total_samples = total_samples
         self.feature_channels = feature_channels
-
-    def _apply_init(self, network, init_func):
-        for name, weight in network.named_parameters():
-            init_func(name, weight)
 
     def _name(self):
         name = self.__class__.__name__.lower()

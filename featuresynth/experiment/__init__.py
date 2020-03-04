@@ -8,7 +8,5 @@ from .multiscale import \
     MultiScaleExperiment, MultiScaleMultiResExperiment, \
     MultiScaleLowResOnlyExperiment, MultiScaleMultiResGroupedFeaturesExperiment
 from .ddsp import DDSPExperiment, OneDimDDSPExperiment
-from .filterbank import \
-    FilterBankExperiment, LargeReceptiveFieldFilterBankExperiment, \
-    ResidualStackFilterBankExperiment, LowResFilterBankExperiment
+from .filterbank import FilterBankExperiment
 from .report import Report

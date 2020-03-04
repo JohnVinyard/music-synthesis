@@ -3,9 +3,11 @@ import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 import numpy as np
 
+from .init import weights_init
 from ..audio import RawAudio
 from .experiment import Experiment
 from ..loss import mel_gan_disc_loss, hinge_generator_loss
+
 from ..feature import normalized_and_augmented_audio, make_spectrogram_func
 import zounds
 
@@ -82,7 +84,6 @@ class Generator(nn.Module):
         ]
 
         self.model = nn.Sequential(*model)
-        self.apply(weights_init)
 
     def forward(self, x):
         return self.model(x)
@@ -149,7 +150,6 @@ class Discriminator(nn.Module):
 
         self.downsample = nn.AvgPool1d(4, stride=2, padding=1,
                                        count_include_pad=False)
-        self.apply(weights_init)
 
     def forward(self, x):
         # results = []
@@ -200,8 +200,7 @@ def mel_gan_gen_loss(
     return j_loss + (feature_loss_weight * f_loss)
 
 
-def no_init(name, weight):
-    pass
+
 
 
 class RealMelGanExperiment(Experiment):
@@ -225,8 +224,8 @@ class RealMelGanExperiment(Experiment):
             # TODO: I should be able to swap out loss functions more easily
             generator_loss=mel_gan_gen_loss,
             discriminator_loss=mel_gan_disc_loss,
-            g_init=no_init,
-            d_init=no_init,
+            g_init=weights_init,
+            d_init=weights_init,
             feature_funcs={
                 'audio': (normalized_and_augmented_audio, (samplerate,)),
                 'spectrogram': (spec_func, (samplerate,))
