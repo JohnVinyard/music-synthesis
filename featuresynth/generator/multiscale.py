@@ -1,8 +1,8 @@
 from torch import nn
 from ..util.modules import LearnedUpSample, DilatedStack, UpSample
 from ..audio.transform import fft_frequency_recompose
-from torch.nn.init import xavier_normal_, calculate_gain
 from torch.nn import functional as F
+import numpy as np
 
 
 class ChannelGenerator(nn.Module):
@@ -44,34 +44,43 @@ class ChannelGenerator(nn.Module):
 
 
 class MultiScaleGenerator(nn.Module):
-    def __init__(self, feature_channels, transposed_conv=False):
+    def __init__(self, feature_channels, input_size, output_size, transposed_conv=False):
         super().__init__()
 
+        self.input_size = input_size
+        self.output_size = output_size
         self.feature_channels = feature_channels
         self.embedding = nn.Conv1d(feature_channels, 512, 7, 1, 3)
+        self.upsample_ratio = output_size // input_size
 
-        self.spec = {
-            16384: {
+        band_sizes = [int(2 ** (np.log2(output_size) - i)) for i in range(5)]
+
+        spec_template = {
+            0: {
                 'scale_factors': [4, 4, 4, 4],
                 'channels': [512, 256, 128, 64, 32]
             },
-            8192: {
+            1: {
                 'scale_factors': [4, 4, 4, 2],
                 'channels': [512, 256, 128, 64, 32]
             },
-            4096: {
+            2: {
                 'scale_factors': [4, 4, 2, 2],
                 'channels': [512, 256, 128, 64, 32]
             },
-            2048: {
+            3: {
                 'scale_factors': [4, 2, 2, 2],
                 'channels': [512, 256, 128, 64, 32]
             },
-            1024: {
+            4: {
                 'scale_factors': [2, 2, 2, 2],
                 'channels': [512, 256, 128, 64, 32]
             }
         }
+        # produce keys in descending order of band size, e.g.:
+        # [8192, 4096, 2048, 1024, 512]
+        self.spec = {bs: v for bs, v in zip(band_sizes, spec_template.values())}
+
         self.channel_generators = {}
         for key, value in self.spec.items():
             generator = ChannelGenerator(
@@ -79,25 +88,17 @@ class MultiScaleGenerator(nn.Module):
             self.add_module(f'channel_{key}', generator)
             self.channel_generators[key] = generator
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                # if 'samples' in name:
-                #     xavier_normal_(weight.data, 1)
-                # else:
-                #     xavier_normal_(
-                #         weight.data, calculate_gain('leaky_relu', 0.2))
-                weight.data.normal_(0, 0.02)
-        return self
-
     def forward(self, x):
+        input_size = x.shape[-1]
+
         x = F.leaky_relu(self.embedding(x), 0.2)
 
         results = {}
         for size, layer in self.channel_generators.items():
             results[size] = layer(x)
 
-        final = fft_frequency_recompose(results, 16384)
+        final = fft_frequency_recompose(
+            results, input_size * self.upsample_ratio)
         return final
 
 

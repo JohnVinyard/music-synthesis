@@ -5,29 +5,32 @@ from torch.nn.init import xavier_normal_, calculate_gain
 from torch.nn import functional as F
 from functools import reduce
 import torch
+import numpy as np
 
 
 class STFTDiscriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, start_size, target_size):
         super().__init__()
+        self.target_size = target_size
+        self.start_size = start_size
         self.channels = [256, 512, 1024, 2048]
         self.main = DownsamplingStack(
-            start_size=64,
-            target_size=8,
+            start_size=self.start_size,
+            target_size=self.target_size,
             scale_factor=2,
             layer_func=self._build_layer,
             activation=lambda x: F.leaky_relu(x, 0.2))
         self.judge = nn.Conv1d(self.channels[-1], 1, 7, 1, 3)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'judge' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
+    # def initialize_weights(self):
+    #     for name, weight in self.named_parameters():
+    #         if weight.data.dim() > 2:
+    #             if 'judge' in name:
+    #                 xavier_normal_(weight.data, 1)
+    #             else:
+    #                 xavier_normal_(
+    #                     weight.data, calculate_gain('leaky_relu', 0.2))
+    #     return self
 
     def _build_layer(self, i, curr_size, out_size, first, last):
         return nn.Conv1d(
@@ -39,15 +42,16 @@ class STFTDiscriminator(nn.Module):
 
     def forward(self, x):
         batch, channels, time = x.shape
+        x = F.pad(x, (0, 256))
         x = torch.stft(
-            x.view(batch, time),
-            frame_length=512,
-            hop=256,
-            fft_size=512,
+            x.view(batch, -1),
+            n_fft=512,
+            hop_length=256,
+            win_length=512,
             normalized=True,
-            pad_end=256)
-        x = torch.abs(x[:, :, 1:, 0])
-        x = x.permute(0, 2, 1).contiguous()
+            center=False)
+
+        x = torch.abs(x[:, 1:, :, 0])
         features, x = self.main(x, return_features=True)
         x = self.judge(x)
         return [features], [x]
@@ -77,30 +81,41 @@ class ChannelDiscriminator(nn.Module):
 
 
 class MultiScaleDiscriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, input_size):
         super().__init__()
-        self.spec = {
-            16384: {
+
+        self.input_size = input_size
+        band_sizes = \
+            [int(2 ** (np.log2(self.input_size) - i)) for i in range(5)]
+        spec_template = {
+            0: {
                 'scale_factors': [4, 4, 4, 4],
                 'channels': [1, 32, 64, 128, 256]
             },
-            8192: {
+            1: {
                 'scale_factors': [4, 4, 4, 2],
                 'channels': [1, 32, 64, 128, 256]
             },
-            4096: {
+            2: {
                 'scale_factors': [4, 4, 2, 2],
                 'channels': [1, 32, 64, 128, 256]
             },
-            2048: {
+            3: {
                 'scale_factors': [4, 2, 2, 2],
                 'channels': [1, 32, 64, 128, 256]
             },
-            1024: {
+            4: {
                 'scale_factors': [2, 2, 2, 2],
                 'channels': [1, 32, 64, 128, 256]
             }
         }
+
+        # produce keys in descending order of band size, e.g.:
+        # [8192, 4096, 2048, 1024, 512]
+        self.spec = {bs: v for bs, v in zip(band_sizes, spec_template.values())}
+
+        self.smallest_band = min(self.spec.keys())
+
         self.channel_discs = {}
         for key, value in self.spec.items():
             disc = ChannelDiscriminator(**value)
@@ -110,20 +125,20 @@ class MultiScaleDiscriminator(nn.Module):
         final_channels = sum(v['channels'][-1] for v in self.spec.values())
         self.judge = nn.Conv1d(final_channels, 1, 3, 1, 1)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'judge' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
+    # def initialize_weights(self):
+    #     for name, weight in self.named_parameters():
+    #         if weight.data.dim() > 2:
+    #             if 'judge' in name:
+    #                 xavier_normal_(weight.data, 1)
+    #             else:
+    #                 xavier_normal_(
+    #                     weight.data, calculate_gain('leaky_relu', 0.2))
+    #     return self
 
     def forward(self, x):
         features = []
         channels = []
-        bands = fft_frequency_decompose(x, 1024)
+        bands = fft_frequency_decompose(x, self.smallest_band)
 
         for size, layer in self.channel_discs.items():
             f, x = layer(bands[size])
@@ -136,21 +151,26 @@ class MultiScaleDiscriminator(nn.Module):
 
 
 class MultiScaleMultiResDiscriminator(nn.Module):
-    def __init__(self, flatten_multiscale_features=False):
+    def __init__(self, input_size, flatten_multiscale_features=False):
         super().__init__()
+        self.input_size = input_size
         self.flatten_multiscale_features = flatten_multiscale_features
-        self.multiscale = MultiScaleDiscriminator()
-        self.low_res = STFTDiscriminator()
+        self.multiscale = MultiScaleDiscriminator(input_size)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'judge' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
+        hop_size = 256
+        low_res_input_size = input_size // hop_size
+        self.low_res = STFTDiscriminator(
+            low_res_input_size, low_res_input_size // 8)
+
+    # def initialize_weights(self):
+    #     for name, weight in self.named_parameters():
+    #         if weight.data.dim() > 2:
+    #             if 'judge' in name:
+    #                 xavier_normal_(weight.data, 1)
+    #             else:
+    #                 xavier_normal_(
+    #                     weight.data, calculate_gain('leaky_relu', 0.2))
+    #     return self
 
     def forward(self, x):
         features = []

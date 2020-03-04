@@ -1,64 +1,22 @@
 from ..audio import RawAudio
-from ..discriminator.multiscale import \
-    MultiScaleDiscriminator, MultiScaleMultiResDiscriminator, STFTDiscriminator
+from ..discriminator.multiscale import MultiScaleMultiResDiscriminator
 from ..generator.multiscale import MultiScaleGenerator
 from .experiment import Experiment
 from ..loss import mel_gan_gen_loss, mel_gan_disc_loss
+import zounds
+from ..feature import normalized_and_augmented_audio, make_spectrogram_func
+from .init import weights_init
 
 """
 Things To Try:
 - judgements per band in addition to top-level judgement
-- Filter as first discriminator layer and last generator layer for each channel
+- Filter bank as first discriminator layer and last generator layer for each channel
 - audio representation where bands are stored separately rather than being
   resampled and summed together for better gradients?
 - try transposed convolutions in channel generators
 """
 
 
-class MultiScaleExperiment(Experiment):
-    """
-    The intuition here is that when producing audio at a given sample rate,
-    many/most "important" frequency bands require a much lower sampling rate.
-
-    Here, we split the generator into five bands that generate audio at
-    different rates, then upsample and combine the results.
-
-    The discriminator performs the same operation in reverse, decomposing and
-    resampling the input into five bands sampled at appropriate rates, analyzes
-    each band and then combines the results
-
-    This approach shows promise, and deserves an overnight run
-    """
-
-    def __init__(self):
-        feature_size = 64
-        feature_channels = 256
-        super().__init__(
-            generator=MultiScaleGenerator(feature_channels),
-            discriminator=MultiScaleDiscriminator(),
-            learning_rate=1e-4,
-            feature_size=feature_size,
-            audio_repr_class=RawAudio,
-            generator_loss=mel_gan_gen_loss,
-            discriminator_loss=mel_gan_disc_loss)
-
-
-class MultiScaleMultiResExperiment(Experiment):
-    """
-
-    """
-
-    def __init__(self):
-        feature_size = 64
-        feature_channels = 256
-        super().__init__(
-            generator=MultiScaleGenerator(feature_channels),
-            discriminator=MultiScaleMultiResDiscriminator(),
-            learning_rate=1e-4,
-            feature_size=feature_size,
-            audio_repr_class=RawAudio,
-            generator_loss=mel_gan_gen_loss,
-            discriminator_loss=mel_gan_disc_loss)
 
 
 class MultiScaleMultiResGroupedFeaturesExperiment(Experiment):
@@ -67,33 +25,33 @@ class MultiScaleMultiResGroupedFeaturesExperiment(Experiment):
     """
 
     def __init__(self):
-        feature_channels = 256
-        feature_size = 64
+        n_mels = 128
+        feature_size = 32
+        samplerate = zounds.SR22050()
+        n_fft = 1024
+        hop = 256
+        total_samples = 8192
+
+        spec_func = make_spectrogram_func(
+            normalized_and_augmented_audio, samplerate, n_fft, hop, n_mels)
+
         super().__init__(
             generator=MultiScaleGenerator(
-                feature_channels, transposed_conv=True),
+                n_mels, feature_size, total_samples, transposed_conv=True),
             discriminator=MultiScaleMultiResDiscriminator(
-                flatten_multiscale_features=True),
+                total_samples, flatten_multiscale_features=True),
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,
             generator_loss=mel_gan_gen_loss,
-            discriminator_loss=mel_gan_disc_loss)
-
-
-class MultiScaleLowResOnlyExperiment(Experiment):
-    """
-
-    """
-
-    def __init__(self):
-        feature_channels = 256
-        feature_size = 64
-        super().__init__(
-            generator=MultiScaleGenerator(feature_channels),
-            discriminator=STFTDiscriminator(),
-            learning_rate=1e-4,
-            feature_size=feature_size,
-            audio_repr_class=RawAudio,
-            generator_loss=mel_gan_gen_loss,
-            discriminator_loss=mel_gan_disc_loss)
+            discriminator_loss=mel_gan_disc_loss,
+            g_init=weights_init,
+            d_init=weights_init,
+            feature_funcs={
+                'audio': (normalized_and_augmented_audio, (samplerate,)),
+                'spectrogram': (spec_func, (samplerate,))
+            },
+            total_samples=total_samples,
+            feature_channels=n_mels,
+            samplerate=samplerate,
+            inference_sequence_factor=4)

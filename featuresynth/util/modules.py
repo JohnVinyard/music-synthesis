@@ -242,6 +242,9 @@ class DownsamplingStack(nn.Module):
             curr_size = out_size
         self.main = nn.Sequential(*layers)
 
+    def __len__(self):
+        return len(self.main)
+
     def __iter__(self):
         yield from self.main
 
