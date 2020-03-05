@@ -38,18 +38,14 @@ was to ensure that time-domain audio and spectorgrams were not being scaled
   
 
 # TODO
-- fix initialization code
-- get all winner models working with newest experiment format
+- *try filterbank discriminator original formula on LJSpeech*
+- *deploy script - AWS training*
+- try multiscale experiment without low-res FFT component
 - FFT models
-- zounds build
-- deploy script
-- try MelGAN (as published) on LJSpeech 
 - try MelGAN (as published) on TIMIT (do shorter windows generalize better?)
 - try original formula with TIMIT and conditional discriminator
-- try filterbank discriminator original formula on LJSpeech
 - think about what it means that multiscale formulation performs well on 
     this many speakers
-- AWS training
 - look at tensorboard
 - organize spectrogram differently, with octaves grouped together
     - `(batch, channels, octave, f0, time)`
