@@ -7,6 +7,7 @@ from .init import weights_init
 from ..audio import RawAudio
 from .experiment import Experiment
 from ..loss import mel_gan_disc_loss, hinge_generator_loss
+from ..util.modules import STFTDiscriminator
 
 from ..feature import normalized_and_augmented_audio, make_spectrogram_func
 import zounds
@@ -234,5 +235,3 @@ class RealMelGanExperiment(Experiment):
             feature_channels=n_mels,
             samplerate=samplerate,
             inference_sequence_factor=4)
-
-

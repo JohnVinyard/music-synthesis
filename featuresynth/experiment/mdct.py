@@ -49,7 +49,7 @@ class GroupedMDCTExperiment(Experiment):
 
 
         super().__init__(
-            generator=GroupedMDCTGenerator(feature_channels),
+            generator=MDCTGenerator(feature_channels),
             discriminator=MDCTDiscriminator(MDCT.mdct_bins(), feature_size),
             learning_rate=1e-4,
             feature_size=feature_size,

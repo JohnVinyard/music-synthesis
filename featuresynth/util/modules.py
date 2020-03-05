@@ -355,3 +355,58 @@ class ResidualStack(nn.Module):
         for layer in self.main:
             x = layer(x)
         return x
+
+
+class STFTDiscriminator(nn.Module):
+    def __init__(
+            self,
+            start_size,
+            target_size,
+            window_size=512,
+            hop_size=256):
+
+        super().__init__()
+        self.hop_size = hop_size
+        self.window_size = window_size
+        self.target_size = target_size
+        self.start_size = start_size
+
+        first_channel = window_size // 2
+        start = int(np.log2(first_channel))
+        n_layers = int(np.log2(self.start_size) - np.log2(self.target_size))
+
+        self.channels = [2 ** i for i in range(start, start + n_layers + 1)]
+        print(start, n_layers, self.channels)
+        # self.channels = [256, 512, 1024, 2048]
+        self.main = DownsamplingStack(
+            start_size=self.start_size,
+            target_size=self.target_size,
+            scale_factor=2,
+            layer_func=self._build_layer,
+            activation=lambda x: F.leaky_relu(x, 0.2))
+        self.judge = nn.Conv1d(self.channels[-1], 1, 7, 1, 3)
+
+
+    def _build_layer(self, i, curr_size, out_size, first, last):
+        return nn.Conv1d(
+            self.channels[i],
+            self.channels[i + 1],
+            7,
+            2,
+            3)
+
+    def forward(self, x):
+        batch, channels, time = x.shape
+        x = F.pad(x, (0, self.hop_size))
+        x = torch.stft(
+            x.view(batch, -1),
+            n_fft=self.window_size,
+            hop_length=self.hop_size,
+            win_length=self.window_size,
+            normalized=True,
+            center=False)
+
+        x = torch.abs(x[:, 1:, :, 0])
+        features, x = self.main(x, return_features=True)
+        x = self.judge(x)
+        return [features], [x]

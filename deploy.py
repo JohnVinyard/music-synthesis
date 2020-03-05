@@ -1,6 +1,16 @@
 from deploygraph import Requirement
-from deploygraph.aws import Box, PublicInternetSecurityGroup
+from deploygraph.aws import Box, IngressRule, BaseSecurityGroup
+import boto3
 
+class TrainingBoxSecurityGroup(BaseSecurityGroup):
+    def __init__(self):
+        super().__init__(
+            'training-box',
+            'training boxes',
+            boto3.client('ec2').describe_vpcs()['Vpcs'][0]['VpcId'],
+            IngressRule(protocol='tcp', port=22, source='0.0.0.0/0'),
+            IngressRule(protocol='tcp', port=8888, source='0.0.0.0/0'),
+            IngressRule(protocol='tcp', port=443, source='0.0.0.0/0'))
 
 class ConfiguredBox(Requirement):
     def __init__(self, box):
@@ -11,15 +21,15 @@ class ConfiguredBox(Requirement):
         return self.box.data()
 
     def fulfilled(self):
-        connection = self.box.connection
+        connection = self.box.connection()
         try:
-            with connection.cd('music-synthesis'):
-                connection.run('python test.py')
+            with self._conda_env(connection):
+                with connection.cd('music-synthesis'):
+                    connection.run('python test.py')
         except Exception:
             return False
 
-    def _conda_env(self):
-        connection = self.box.connection()
+    def _conda_env(self, connection):
         return connection.prefix('source activate pytorch_p36')
 
     def fulfill(self):
@@ -29,23 +39,19 @@ class ConfiguredBox(Requirement):
         connection.run('sudo rm /var/cache/apt/archives/lock', warn=True)
         connection.run('sudo dpkg --configure -a')
         connection.sudo('apt-get install git')
+        connection.run('rm -rf music-synthesis', warn=True)
         connection.run(
             'git clone https://github.com/JohnVinyard/music-synthesis.git', warn=True)
-        with self._conda_env():
-            connection.run(
-                'conda install -c hcc -c conda-forge libsndfile=1.0.28 libsamplerate=0.1.8 libflac=1.3.1 libogg=1.3.2 librosa -y')
-            with connection.cd('music-synthesis'):
-                # KLUDGE: Ignoring the LWS dependency for now, but perhaps that
-                # could be build in a similar fashion
-                connection.run('conda install conda-build')
-                connection.run('conda skeleton pypi zounds')
-                connection.run('conda build zounds')
-                connection.run('conda install --use-local zounds')
-                connection.run('python test.py')
+
+        with self._conda_env(connection):
+            connection.run('conda remove llvmlite -y')
+            connection.run('anaconda3/envs/pytorch_p36/bin/pip install zounds')
+            connection.run('anaconda3/envs/pytorch_p36/bin/pip install lws')
+            connection.run('conda install -c hcc -c conda-forge libsndfile=1.0.28 libsamplerate=0.1.8 libflac=1.3.1 libogg=1.3.2 librosa -y')
 
 
 if __name__ == '__main__':
-    group = PublicInternetSecurityGroup()
+    group = TrainingBoxSecurityGroup()
     box = Box(
         instance_name='deep-learning',
         image_id='ami-025ed45832b817a35',

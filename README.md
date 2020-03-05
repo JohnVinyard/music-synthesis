@@ -48,7 +48,7 @@ weight norm with both of these approaches
 # TODO
 - try weight norm with FilterBank experiment
 - try conditional discriminator
-
+- try returning to least-squares GAN
 - see if I can just uninstall llvmlite manually before rest of install
 - *try filterbank discriminator original formula on LJSpeech*
 - *deploy script - AWS training*

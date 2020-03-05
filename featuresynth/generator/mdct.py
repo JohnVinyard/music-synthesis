@@ -19,24 +19,24 @@ class MDCTGenerator(nn.Module):
             activation=lambda x: F.leaky_relu(x, 0.2),
             residual=True)
 
-        self.to_frames = nn.Conv1d(channels, 256, 7, 1, 3)
-        self.to_frames_gate = nn.Conv1d(channels, 256, 7, 1, 3)
+        self.to_frames = nn.Conv1d(channels, 256, 7, 1, 3, groups=256)
+        self.to_frames_gate = nn.Conv1d(channels, 256, 7, 1, 3, groups=256)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'frames' in name:
-                    xavier_normal_(weight.data, calculate_gain('tanh'))
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
+    # def initialize_weights(self):
+    #     for name, weight in self.named_parameters():
+    #         if weight.data.dim() > 2:
+    #             if 'frames' in name:
+    #                 xavier_normal_(weight.data, calculate_gain('tanh'))
+    #             else:
+    #                 xavier_normal_(
+    #                     weight.data, calculate_gain('leaky_relu', 0.2))
+    #     return self
 
     def forward(self, x):
         batch, channels, time = x.shape
         x = self.main(x)
         x = F.tanh(self.to_frames(x)) * F.tanh(self.to_frames_gate(x))
-        x = x.view(batch, channels, time)
+        x = x.view(batch, -1, time)
         return x
 
 
