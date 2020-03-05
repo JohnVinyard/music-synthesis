@@ -13,7 +13,6 @@ Things To Try:
 - Filter bank as first discriminator layer and last generator layer for each channel
 - audio representation where bands are stored separately rather than being
   resampled and summed together for better gradients?
-- try transposed convolutions in channel generators
 """
 
 

@@ -35,12 +35,25 @@ was to ensure that time-domain audio and spectorgrams were not being scaled
   varying each samples amplitude.  I'm skeptical about the contribution of this
   augmentation, but I've replicated it for now.  Next, moving on to trying out
   some of my own models with stronger audio priors.
-  
+
+# Thursday, March 5, 2020 9AM
+I've now tried the multiscale and filterbank approaches with the LJSpeech 
+dataset, with a 22050hz sample rate and short windows.  Neither performs as well
+as the original MelGAN formulation, with the filter bank approach being the 
+better of the two (speech is still muted).  It seems that the multiscale 
+approach relies entirely on the low resolution FFT discriminator component, 
+which explains the significant phase issues.  It's probably worth trying out
+weight norm with both of these approaches 
 
 # TODO
+- try weight norm with FilterBank experiment
+- try conditional discriminator
+
+- see if I can just uninstall llvmlite manually before rest of install
 - *try filterbank discriminator original formula on LJSpeech*
 - *deploy script - AWS training*
-- try multiscale experiment without low-res FFT component
+- tweak multiscale experiment's FFT parameters
+- try weight norm with multiscale experiment
 - FFT models
 - try MelGAN (as published) on TIMIT (do shorter windows generalize better?)
 - try original formula with TIMIT and conditional discriminator
@@ -49,6 +62,11 @@ was to ensure that time-domain audio and spectorgrams were not being scaled
 - look at tensorboard
 - organize spectrogram differently, with octaves grouped together
     - `(batch, channels, octave, f0, time)`
+
+# DONE
+- ~~try multiscale experiment without low-res FFT component~~
+    - This results in significantly less intelligible speech than the MelGAN
+       formulation.  It should be removed from the winner's circle, for now.
 
 # Tools
 - experiments configured in JSON file

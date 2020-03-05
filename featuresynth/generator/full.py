@@ -1,15 +1,12 @@
 import numpy as np
 import torch
-import zounds
 from torch import nn
 from torch.nn import functional as F
-from torch.nn.init import xavier_normal_, calculate_gain
 from torch.nn.utils import weight_norm
 
 from .ddsp import oscillator_bank, smooth_upsample2, noise_bank2
 from ..util import device
-from ..util.modules import normalize, UpsamplingStack, \
-    UpSample, ResidualStack
+from ..util.modules import UpsamplingStack, UpSample, ResidualStack
 
 
 def weight_norm(x):
@@ -124,7 +121,7 @@ class DDSPGenerator(nn.Module):
         self.diffs = torch.from_numpy(diffs).to(device).float()
 
 
-    def forward(self, x, debug=False):
+    def forward(self, x):
         input_size = x.shape[-1]
 
         x = x.view(x.shape[0], self.in_channels, -1)
@@ -150,12 +147,7 @@ class DDSPGenerator(nn.Module):
 
         harmonic = oscillator_bank(f, l, int(self.samplerate)).view(x.shape[0], 1, -1)
         noise = noise_bank2(n_l)
-        # if debug:
-        #     return harmonic, noise, l, f, n_l
-        # else:
-        #     return normalize(harmonic)
-        # x = normalize(harmonic)
-
+        # TODO: Bring noise component back int
         x = harmonic
         return x
 

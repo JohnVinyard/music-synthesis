@@ -1,7 +1,6 @@
 from torch import nn
 from ..audio.transform import fft_frequency_decompose
 from ..util.modules import DownsamplingStack
-from torch.nn.init import xavier_normal_, calculate_gain
 from torch.nn import functional as F
 from functools import reduce
 import torch
@@ -22,15 +21,6 @@ class STFTDiscriminator(nn.Module):
             activation=lambda x: F.leaky_relu(x, 0.2))
         self.judge = nn.Conv1d(self.channels[-1], 1, 7, 1, 3)
 
-    # def initialize_weights(self):
-    #     for name, weight in self.named_parameters():
-    #         if weight.data.dim() > 2:
-    #             if 'judge' in name:
-    #                 xavier_normal_(weight.data, 1)
-    #             else:
-    #                 xavier_normal_(
-    #                     weight.data, calculate_gain('leaky_relu', 0.2))
-    #     return self
 
     def _build_layer(self, i, curr_size, out_size, first, last):
         return nn.Conv1d(
@@ -125,15 +115,6 @@ class MultiScaleDiscriminator(nn.Module):
         final_channels = sum(v['channels'][-1] for v in self.spec.values())
         self.judge = nn.Conv1d(final_channels, 1, 3, 1, 1)
 
-    # def initialize_weights(self):
-    #     for name, weight in self.named_parameters():
-    #         if weight.data.dim() > 2:
-    #             if 'judge' in name:
-    #                 xavier_normal_(weight.data, 1)
-    #             else:
-    #                 xavier_normal_(
-    #                     weight.data, calculate_gain('leaky_relu', 0.2))
-    #     return self
 
     def forward(self, x):
         features = []
@@ -162,15 +143,6 @@ class MultiScaleMultiResDiscriminator(nn.Module):
         self.low_res = STFTDiscriminator(
             low_res_input_size, low_res_input_size // 8)
 
-    # def initialize_weights(self):
-    #     for name, weight in self.named_parameters():
-    #         if weight.data.dim() > 2:
-    #             if 'judge' in name:
-    #                 xavier_normal_(weight.data, 1)
-    #             else:
-    #                 xavier_normal_(
-    #                     weight.data, calculate_gain('leaky_relu', 0.2))
-    #     return self
 
     def forward(self, x):
         features = []
@@ -186,8 +158,8 @@ class MultiScaleMultiResDiscriminator(nn.Module):
             features.extend(f)
         judgements.extend(j)
 
-        f, j = self.low_res(x)
-        features.extend(f)
-        judgements.extend(j)
+        # f, j = self.low_res(x)
+        # features.extend(f)
+        # judgements.extend(j)
 
         return features, judgements
