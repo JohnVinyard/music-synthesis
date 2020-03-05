@@ -1,6 +1,7 @@
 from ..train import GeneratorTrainer, DiscriminatorTrainer
 from .init import weights_init
 from ..data import batch_stream
+from ..loss import hinge_discriminator_loss, hinge_generator_loss
 from torch.optim import Adam
 import torch
 from itertools import cycle
@@ -80,12 +81,16 @@ class Experiment(BaseGanExperiment):
             total_samples=16384,
             feature_channels=256,
             inference_sequence_factor=4,
-            samplerate=zounds.SR11025()):
+            samplerate=zounds.SR11025(),
+            sub_disc_loss=hinge_discriminator_loss,
+            sub_gen_loss=hinge_generator_loss):
 
         super().__init__()
 
         # how much longer than the test sequence should the inference sequence
         # be?
+        self.sub_gen_loss = sub_gen_loss
+        self.sub_disc_loss = sub_disc_loss
         self.inference_sequence_factor = inference_sequence_factor
         if feature_funcs is None:
             raise ValueError('You must provide feature funcs')
@@ -116,14 +121,16 @@ class Experiment(BaseGanExperiment):
             self.__g_optim,
             self.__d,
             self.__d_optim,
-            generator_loss)
+            generator_loss,
+            self.sub_gen_loss)
 
         self.__d_trainer = DiscriminatorTrainer(
             self.__g,
             self.__g_optim,
             self.__d,
             self.__d_optim,
-            discriminator_loss)
+            discriminator_loss,
+            self.sub_disc_loss)
 
         self.__feature_size = feature_size
         self.__audio_repr_class = audio_repr_class

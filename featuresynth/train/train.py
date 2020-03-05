@@ -1,4 +1,5 @@
 from ..util.modules import zero_grad
+from ..loss import hinge_generator_loss, hinge_discriminator_loss
 from datetime import datetime
 import torch
 
@@ -10,9 +11,11 @@ class GeneratorTrainer(object):
             g_optim,
             discriminator,
             d_optim,
-            loss):
+            loss,
+            sub_loss=hinge_generator_loss):
 
         super().__init__()
+        self.sub_loss = sub_loss
         self.loss = loss
         self.d_optim = d_optim
         self.discriminator = discriminator
@@ -26,7 +29,8 @@ class GeneratorTrainer(object):
         f_features, f_score = self.discriminator(fake)
         r_features, r_score = self.discriminator(samples)
 
-        loss = self.loss(r_features, f_features, r_score, f_score)
+        loss = self.loss(
+            r_features, f_features, r_score, f_score, gan_loss=self.sub_loss)
 
         loss.backward()
         self.g_optim.step()
@@ -34,8 +38,11 @@ class GeneratorTrainer(object):
 
 
 class DiscriminatorTrainer(object):
-    def __init__(self, generator, g_optim, discriminator, d_optim, loss):
+    def __init__(
+            self, generator, g_optim, discriminator, d_optim, loss, sub_loss):
+
         super().__init__()
+        self.sub_loss = sub_loss
         self.loss = loss
         self.d_optim = d_optim
         self.discriminator = discriminator
@@ -49,7 +56,7 @@ class DiscriminatorTrainer(object):
         _, f_score = self.discriminator(fake)
         _, r_score = self.discriminator(samples)
 
-        loss = self.loss(r_score, f_score)
+        loss = self.loss(r_score, f_score, gan_loss=self.sub_loss)
         loss.backward()
         self.d_optim.step()
         return {'d_loss': loss.item()}

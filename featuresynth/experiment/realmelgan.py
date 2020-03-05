@@ -7,7 +7,6 @@ from .init import weights_init
 from ..audio import RawAudio
 from .experiment import Experiment
 from ..loss import mel_gan_disc_loss, hinge_generator_loss
-from ..util.modules import STFTDiscriminator
 
 from ..feature import normalized_and_augmented_audio, make_spectrogram_func
 import zounds
@@ -222,7 +221,6 @@ class RealMelGanExperiment(Experiment):
             learning_rate=1e-4,
             feature_size=size,
             audio_repr_class=RawAudio,
-            # TODO: I should be able to swap out loss functions more easily
             generator_loss=mel_gan_gen_loss,
             discriminator_loss=mel_gan_disc_loss,
             g_init=weights_init,

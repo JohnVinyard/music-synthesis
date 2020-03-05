@@ -4,7 +4,9 @@ from ..generator import \
     MDCTGenerator, TwoDimMDCTGenerator, UnconditionedGenerator, \
     GroupedMDCTGenerator
 import zounds
-from ..loss import mel_gan_disc_loss, mel_gan_gen_loss
+from ..loss import \
+    mel_gan_disc_loss, mel_gan_gen_loss, least_squares_generator_loss, \
+    least_squares_disc_loss
 from .init import weights_init
 from ..feature import make_spectrogram_func, normalized_and_augmented_audio
 
@@ -55,7 +57,9 @@ class GroupedMDCTExperiment(Experiment):
             feature_size=feature_size,
             audio_repr_class=MDCT,
             generator_loss=mel_gan_gen_loss,
+            sub_gen_loss=least_squares_generator_loss,
             discriminator_loss=mel_gan_disc_loss,
+            sub_disc_loss=least_squares_disc_loss,
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
