@@ -1,3 +1,4 @@
+from .fft import ComplexSTFTExperiment
 from .mdct import GroupedMDCTExperiment
 from .melgan import MultiScaleMelGanExperiment
 from .realmelgan import RealMelGanExperiment

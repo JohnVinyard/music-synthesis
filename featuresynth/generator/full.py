@@ -148,7 +148,7 @@ class DDSPGenerator(nn.Module):
         harmonic = oscillator_bank(f, l, int(self.samplerate)).view(x.shape[0], 1, -1)
         noise = noise_bank2(n_l)
         # TODO: Bring noise component back int
-        x = harmonic
+        x = harmonic + noise
         return x
 
 

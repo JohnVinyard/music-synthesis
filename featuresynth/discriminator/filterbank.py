@@ -25,16 +25,6 @@ class LowResFilterBankDiscriminator(nn.Module):
         self.filter_bank.to(device)
         return super().to(device)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'judge' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
-
     def forward(self, x):
         batch = x.shape[0]
 

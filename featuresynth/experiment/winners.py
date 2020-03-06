@@ -1,4 +1,4 @@
+from .fft import ComplextSTFT
 from .multiscale import MultiScaleMultiResGroupedFeaturesExperiment
 from .filterbank import FilterBankExperiment
-from .melgan import MultiScaleMelGanExperiment
 from .realmelgan import RealMelGanExperiment

@@ -3,7 +3,9 @@ from ..discriminator import MelGanDiscriminator
 from .realmelgan import Discriminator
 from ..generator.full import DDSPGenerator
 from .experiment import Experiment
-from ..loss import mel_gan_disc_loss, mel_gan_gen_loss
+from ..loss import \
+    mel_gan_disc_loss, mel_gan_gen_loss, least_squares_disc_loss, \
+    least_squares_generator_loss
 from .init import weights_init
 from ..feature import normalized_and_augmented_audio, make_spectrogram_func
 import zounds
@@ -61,7 +63,9 @@ class OneDimDDSPExperiment(Experiment):
             feature_size=feature_size,
             audio_repr_class=RawAudio,
             generator_loss=mel_gan_gen_loss,
+            sub_gen_loss=least_squares_generator_loss,
             discriminator_loss=mel_gan_disc_loss,
+            sub_disc_loss=least_squares_disc_loss,
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={

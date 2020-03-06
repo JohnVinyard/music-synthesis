@@ -77,46 +77,93 @@ class MDCT(BaseAudioRepresentation):
 
 
 class ComplextSTFT(BaseAudioRepresentation):
+    window_size = 1024
+    hop_size = 256
+    channels = window_size // 2 + 1
+
+    proc = lws.lws(window_size, hop_size, mode='music', perfectrec=True)
+
     def __init__(self, data, samplerate):
         super().__init__(data, samplerate)
 
+    # @classmethod
+    # def _batch_stft(cls, x, window, hop):
+    #     diff = window - hop
+    #     x = np.pad(x, ((0, 0), (0, 0), (0, diff)), mode='constant')
+    #     batch, channels, time = x.shape
+    #     x = zounds.sliding_window(x, (1, 1, window), (1, 1, hop), flatten=False) \
+    #         .reshape((batch, -1, window))
+    #     win = hann(window)[None, None, :]
+    #     coeffs = np.fft.rfft(x * win, axis=-1)
+    #     return coeffs.transpose((0, 2, 1))
+    #
+    # def _batch_istft(self, x, window, hop):
+    #     diff = window - hop
+    #     recon = np.fft.irfft(x, axis=1)
+    #     win = hann(window)[None, :, None]
+    #     recon *= win
+    #     batch, _, time = recon.shape
+    #     output = np.zeros((batch, 1, time * hop + diff))
+    #     for i in range(time):
+    #         start = hop * i
+    #         stop = start + window
+    #         output[:, :, start:stop] += recon[:, :, i][:, None, :]
+    #     return output.astype(np.float32)
+
     @classmethod
     def _batch_stft(cls, x, window, hop):
-        batch, channels, time = x.shape
-        x = zounds.sliding_window(x, (1, 1, window), (1, 1, hop), flatten=False) \
-            .reshape((batch, -1, window))
-        win = hann(window)[None, None, :]
-        coeffs = np.fft.rfft(x * win, axis=-1, norm='ortho')
-        return coeffs.transpose((0, 2, 1))
+        coeffs = []
+        for item in x:
+            s = item.squeeze()
+            expected_frames = s.shape[0] // hop
+            c = cls.proc.stft(s).T[None, ...]
+            coeffs.append(c[..., :expected_frames])
+        return np.concatenate(coeffs, axis=0)
+
 
     def _batch_istft(self, x, window, hop):
-        diff = window - hop
-        recon = np.fft.irfft(x, axis=1, norm='ortho')
-        win = hann(window)[None, :, None]
-        recon *= win
-        batch, _, time = recon.shape
-        output = np.zeros((batch, 1, time * hop + diff))
-        for i in range(time):
-            start = hop * i
-            stop = start + window
-            output[:, :, start:stop] += recon[:, :, i]
-        return output.astype(np.float32)
+        samples = []
+        for item in x:
+            s = self.proc.istft(item.T)[None, None, :]
+            samples.append(s)
+        return np.concatenate(samples, axis=0)
+
+    @property
+    def magnitude(self):
+        return self.data[:, :self.channels, :]
+
+    @property
+    def phase(self):
+        return self.data[:, self.channels:, :]
 
     def to_audio(self):
         batch, channels, time = self.data.shape
+
         real = self.data[:, :channels // 2, :]
         imag = self.data[:, channels // 2:, :]
-        coeffs = real + (1j * imag)
-        samples = self._batch_istft(coeffs, 1024, 256)
+
+        real = np.exp(real)
+        imag = np.cumsum(imag, axis=-1)
+        imag = (imag + np.pi) % (2 * np.pi) - np.pi
+
+        coeffs = real * np.exp(1j * imag)
+
+        samples = self._batch_istft(coeffs, self.window_size, self.hop_size)
+
         return samples.reshape((batch, -1)).astype(np.float32)
 
     @classmethod
     def from_audio(cls, samples, samplerate):
-        coeffs = cls._batch_stft(samples, 1024, 256)
-        real = coeffs.real
-        imag = coeffs.imag
+        coeffs = cls._batch_stft(samples, cls.window_size, cls.hop_size)
+
+        real = np.log(np.abs(coeffs) + 1e-12)
+        imag = np.unwrap(np.angle(coeffs))
+        imag = np.diff(imag, axis=-1)
+        imag = np.pad(
+            imag, [[0, 0], [0, 0], [1, 0]], mode='constant')
+
         # two arrays of dimension (batch, channels, time)
-        data = np.concatenate([real, imag], axis=1).astype(np.float32)
+        data = np.concatenate([real, imag], axis=1)
         return cls(data, samplerate)
 
 

@@ -71,7 +71,7 @@ def noise_bank2(x):
 from scipy.signal import hann
 
 
-def np_overlap_add(x, apply_window=True):
+def np_overlap_add(x, apply_window=True, hop_size=None):
     batch, channels, frames, samples = x.shape
 
     if apply_window:
@@ -80,7 +80,7 @@ def np_overlap_add(x, apply_window=True):
         window = np.hamming(samples)
         x = x * window[None, None, None, :]
 
-    hop_size = samples // 2
+    hop_size = hop_size or samples // 2
     first_half = x[:, :, :, :hop_size].reshape(batch, channels, -1)
     second_half = x[:, :, :, hop_size:].reshape(batch, channels, -1)
     first_half = np.pad(

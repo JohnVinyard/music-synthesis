@@ -5,3 +5,4 @@ from .full import FullDiscriminator
 from .filterbank import \
     FilterBankDiscriminator, LargeReceptiveFieldFilterBankDiscriminator, \
     LowResFilterBankDiscriminator
+from .fft import ComplextSTFTDiscriminator

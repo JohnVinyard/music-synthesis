@@ -143,7 +143,7 @@ class Report(object):
 
                 real_spec = features[0].T
                 sr = self.experiment.samplerate
-                real_repr = self.experiment.from_audio(samples, sr)
+                real_repr = self.experiment.audio_representation(samples, sr)
                 features = torch.from_numpy(features).to(device)
                 fake = self.experiment.generator(features).data.cpu().numpy()
                 audio_repr = self.experiment.audio_representation(fake, sr)

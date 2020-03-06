@@ -45,18 +45,27 @@ approach relies entirely on the low resolution FFT discriminator component,
 which explains the significant phase issues.  It's probably worth trying out
 weight norm with both of these approaches 
 
+# Thursday, March 5, 2020 9PM
+Least squares loss seems to work significantly better for FilterBank and 
+Multiscale experiments
+
 # TODO
-- try weight norm with FilterBank experiment
-- try conditional discriminator
-- try returning to least-squares GAN
-- *try filterbank discriminator original formula on LJSpeech*
-- tweak multiscale experiment's FFT parameters
-- try weight norm with multiscale experiment
 - FFT models
-- try MelGAN (as published) on TIMIT (do shorter windows generalize better?)
-- try original formula with TIMIT and conditional discriminator
+- try multiscale model with transformation *outside* differentiable model
 - think about what it means that multiscale formulation performs well on 
     this many speakers
+- re-try least squares loss with all experiments of interest
+- try weight norm with FilterBank experiment
+- try weight norm with multiscale experiment
+- retry MDCT with least squares
+- how does initialization affect outcome?
+- FM synth idea
+- try conditional discriminator
+- *try filterbank discriminator original formula on LJSpeech*
+- tweak multiscale experiment's FFT parameters
+- try MelGAN (as published) on TIMIT (do shorter windows generalize better?)
+- try original formula with TIMIT and conditional discriminator
+
 - look at tensorboard
 - organize spectrogram differently, with octaves grouped together
     - `(batch, channels, octave, f0, time)`
