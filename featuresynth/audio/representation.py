@@ -1,9 +1,11 @@
 from ..util.display import spectrogram
-from ..audio.transform import mdct, imdct
+from ..audio.transform import \
+    mdct, imdct, fft_frequency_recompose, fft_frequency_decompose
 import numpy as np
 import zounds
 import lws
 from scipy.signal import hann
+import torch
 
 
 class BaseAudioRepresentation(object):
@@ -74,6 +76,30 @@ class MDCT(BaseAudioRepresentation):
 
     def display_features(self):
         return zounds.log_modulus(np.abs(self.data[0]) * 10).T
+
+
+class MultiScale(BaseAudioRepresentation):
+    def __init__(self, data, samplerate):
+        super().__init__(data, samplerate)
+
+    def to_audio(self):
+        with torch.no_grad():
+            mx = max(v.shape[-1] for v in self.data.values())
+            data = {k:torch.from_numpy(v) for k, v in self.data.items()}
+            samples = fft_frequency_recompose(data, mx)
+            samples = samples.data.cpu().numpy().reshape((-1, mx))
+            return samples
+
+    @classmethod
+    def from_audio(cls, samples, samplerate):
+        with torch.no_grad():
+            time = samples.shape[-1]
+            start = int(np.log2(time))
+            levels = [2**i for i in range(start, start - 5, -1)]
+            samples = torch.from_numpy(samples)
+            data = fft_frequency_decompose(samples, levels[-1])
+            data = {k:v.data.cpu().numpy() for k,v in data.items()}
+            return cls(data, samplerate)
 
 
 class ComplextSTFT(BaseAudioRepresentation):

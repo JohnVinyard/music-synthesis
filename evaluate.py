@@ -121,7 +121,13 @@ if __name__ == '__main__':
             samples, features = batch
             real = exp.audio_representation(samples, exp.samplerate)
             tensor = torch.from_numpy(features).to(device)
-            fake = exp.generator(tensor).data.cpu().numpy()
+
+            fake = exp.generator(tensor)
+            try:
+                fake = fake.data.cpu().numpy()
+            except AttributeError:
+                fake = {k:v.data.cpu().numpy() for k,v in fake.items()}
+
             fake = exp.audio_representation(fake, exp.samplerate)
             return {'real_seq': real, 'fake_seq': fake}
 

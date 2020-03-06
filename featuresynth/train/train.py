@@ -2,6 +2,7 @@ from ..util.modules import zero_grad
 from ..loss import hinge_generator_loss, hinge_discriminator_loss
 from datetime import datetime
 import torch
+import zounds
 
 
 class GeneratorTrainer(object):
@@ -34,12 +35,22 @@ class GeneratorTrainer(object):
 
         loss.backward()
         self.g_optim.step()
-        return {'g_loss': loss.item(), 'fake': fake.data.cpu().numpy()}
+        try:
+            fake = fake.data.cpu().numpy()
+        except AttributeError:
+            fake = {k:v.data.cpu().numpy() for k, v in fake.items()}
+        return {'g_loss': loss.item(), 'fake': fake}
 
 
 class DiscriminatorTrainer(object):
     def __init__(
-            self, generator, g_optim, discriminator, d_optim, loss, sub_loss):
+            self,
+            generator,
+            g_optim,
+            discriminator,
+            d_optim,
+            loss,
+            sub_loss=hinge_discriminator_loss):
 
         super().__init__()
         self.sub_loss = sub_loss
@@ -58,6 +69,7 @@ class DiscriminatorTrainer(object):
 
         loss = self.loss(r_score, f_score, gan_loss=self.sub_loss)
         loss.backward()
+
         self.d_optim.step()
         return {'d_loss': loss.item()}
 
@@ -67,7 +79,16 @@ def training_loop(batch_stream, experiment, device, loggers):
 
     for i, batch in enumerate(batch_stream):
         preprocessed = experiment.preprocess_batch(batch)
-        tensors = [torch.from_numpy(x).to(device).float() for x in preprocessed]
+
+        tensors = []
+        for x in preprocessed:
+            try:
+                tensors.append(torch.from_numpy(x).to(device).float())
+            except TypeError:
+                x = {k:torch.from_numpy(v).to(device).float() for k, v in x.items()}
+                tensors.append(x    )
+        # tensors = [torch.from_numpy(x).to(device).float() for x in preprocessed]
+
         step = next(experiment.training_steps)
         step_result = step(*tensors)
 

@@ -32,9 +32,10 @@ class ChannelDiscriminator(nn.Module):
 
 
 class MultiScaleDiscriminator(nn.Module):
-    def __init__(self, input_size):
+    def __init__(self, input_size, decompose=True):
         super().__init__()
 
+        self.decompose = decompose
         self.input_size = input_size
         band_sizes = \
             [int(2 ** (np.log2(self.input_size) - i)) for i in range(5)]
@@ -80,7 +81,11 @@ class MultiScaleDiscriminator(nn.Module):
     def forward(self, x):
         features = []
         channels = []
-        bands = fft_frequency_decompose(x, self.smallest_band)
+
+        if self.decompose:
+            bands = fft_frequency_decompose(x, self.smallest_band)
+        else:
+            bands = x
 
         for size, layer in self.channel_discs.items():
             f, x = layer(bands[size])
@@ -93,11 +98,15 @@ class MultiScaleDiscriminator(nn.Module):
 
 
 class MultiScaleMultiResDiscriminator(nn.Module):
-    def __init__(self, input_size, flatten_multiscale_features=False):
+    def __init__(
+            self,
+            input_size,
+            flatten_multiscale_features=False,
+            decompose=True):
         super().__init__()
         self.input_size = input_size
         self.flatten_multiscale_features = flatten_multiscale_features
-        self.multiscale = MultiScaleDiscriminator(input_size)
+        self.multiscale = MultiScaleDiscriminator(input_size, decompose)
 
         hop_size = 256
         low_res_input_size = input_size // hop_size

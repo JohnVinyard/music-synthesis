@@ -44,9 +44,17 @@ class ChannelGenerator(nn.Module):
 
 
 class MultiScaleGenerator(nn.Module):
-    def __init__(self, feature_channels, input_size, output_size, transposed_conv=False):
+    def __init__(
+            self,
+            feature_channels,
+            input_size,
+            output_size,
+            transposed_conv=False,
+            recompose=True):
+
         super().__init__()
 
+        self.recompose = recompose
         self.input_size = input_size
         self.output_size = output_size
         self.feature_channels = feature_channels
@@ -88,6 +96,7 @@ class MultiScaleGenerator(nn.Module):
             self.add_module(f'channel_{key}', generator)
             self.channel_generators[key] = generator
 
+
     def forward(self, x):
         input_size = x.shape[-1]
 
@@ -97,9 +106,12 @@ class MultiScaleGenerator(nn.Module):
         for size, layer in self.channel_generators.items():
             results[size] = layer(x)
 
-        final = fft_frequency_recompose(
-            results, input_size * self.upsample_ratio)
-        return final
+        if self.recompose:
+            final = fft_frequency_recompose(
+                results, input_size * self.upsample_ratio)
+            return final
+        else:
+            return results
 
 
 if __name__ == '__main__':

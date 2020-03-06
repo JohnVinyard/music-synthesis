@@ -1,1 +1,1 @@
-from .representation import RawAudio, MDCT, ComplextSTFT
+from .representation import RawAudio, MDCT, ComplextSTFT, MultiScale
