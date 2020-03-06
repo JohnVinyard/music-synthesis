@@ -119,8 +119,8 @@ class MultiScaleMultiResDiscriminator(nn.Module):
             features.extend(f)
         judgements.extend(j)
 
-        f, j = self.low_res(x)
-        features.extend(f)
-        judgements.extend(j)
+        # f, j = self.low_res(x)
+        # features.extend(f)
+        # judgements.extend(j)
 
         return features, judgements
