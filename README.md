@@ -49,9 +49,7 @@ weight norm with both of these approaches
 - try weight norm with FilterBank experiment
 - try conditional discriminator
 - try returning to least-squares GAN
-- see if I can just uninstall llvmlite manually before rest of install
 - *try filterbank discriminator original formula on LJSpeech*
-- *deploy script - AWS training*
 - tweak multiscale experiment's FFT parameters
 - try weight norm with multiscale experiment
 - FFT models
@@ -71,3 +69,6 @@ weight norm with both of these approaches
 # Tools
 - experiments configured in JSON file
 - experiments that run some basic tests?
+
+# Once I've Settled on the Best Model
+- complete AWS deploy script

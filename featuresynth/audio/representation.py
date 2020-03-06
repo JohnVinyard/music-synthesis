@@ -3,6 +3,7 @@ from ..audio.transform import mdct, imdct
 import numpy as np
 import zounds
 import lws
+from scipy.signal import hann
 
 
 class BaseAudioRepresentation(object):
@@ -73,6 +74,50 @@ class MDCT(BaseAudioRepresentation):
 
     def display_features(self):
         return zounds.log_modulus(np.abs(self.data[0]) * 10).T
+
+
+class ComplextSTFT(BaseAudioRepresentation):
+    def __init__(self, data, samplerate):
+        super().__init__(data, samplerate)
+
+    @classmethod
+    def _batch_stft(cls, x, window, hop):
+        batch, channels, time = x.shape
+        x = zounds.sliding_window(x, (1, 1, window), (1, 1, hop), flatten=False) \
+            .reshape((batch, -1, window))
+        win = hann(window)[None, None, :]
+        coeffs = np.fft.rfft(x * win, axis=-1, norm='ortho')
+        return coeffs.transpose((0, 2, 1))
+
+    def _batch_istft(self, x, window, hop):
+        diff = window - hop
+        recon = np.fft.irfft(x, axis=1, norm='ortho')
+        win = hann(window)[None, :, None]
+        recon *= win
+        batch, _, time = recon.shape
+        output = np.zeros((batch, 1, time * hop + diff))
+        for i in range(time):
+            start = hop * i
+            stop = start + window
+            output[:, :, start:stop] += recon[:, :, i]
+        return output.astype(np.float32)
+
+    def to_audio(self):
+        batch, channels, time = self.data.shape
+        real = self.data[:, :channels // 2, :]
+        imag = self.data[:, channels // 2:, :]
+        coeffs = real + (1j * imag)
+        samples = self._batch_istft(coeffs, 1024, 256)
+        return samples.reshape((batch, -1)).astype(np.float32)
+
+    @classmethod
+    def from_audio(cls, samples, samplerate):
+        coeffs = cls._batch_stft(samples, 1024, 256)
+        real = coeffs.real
+        imag = coeffs.imag
+        # two arrays of dimension (batch, channels, time)
+        data = np.concatenate([real, imag], axis=1).astype(np.float32)
+        return cls(data, samplerate)
 
 
 class STFT(BaseAudioRepresentation):
