@@ -3,4 +3,4 @@ import numpy as np
 
 
 def spectrogram(x):
-    return np.abs(zounds.spectral.stft(x))
+    return np.log(np.abs(zounds.spectral.stft(x)))
