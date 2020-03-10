@@ -4,6 +4,6 @@ from .melgan import MultiScaleMelGanExperiment
 from .realmelgan import RealMelGanExperiment
 from .multiscale import \
     MultiScaleMultiResGroupedFeaturesExperiment, MultiScaleNoDeRecompose
-from .ddsp import OneDimDDSPExperiment
+from .ddsp import OneDimDDSPExperiment, DDSPWithFilterBankDiscriminator
 from .filterbank import FilterBankExperiment
 from .report import Report

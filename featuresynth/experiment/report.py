@@ -145,7 +145,13 @@ class Report(object):
                 sr = self.experiment.samplerate
                 real_repr = self.experiment.audio_representation(samples, sr)
                 features = torch.from_numpy(features).to(device)
-                fake = self.experiment.generator(features).data.cpu().numpy()
+
+                fake = self.experiment.generator(features)
+                try:
+                    fake = fake.data.cpu().numpy()
+                except AttributeError:
+                    fake = {k:v.data.cpu().numpy() for k,v in fake.items()}
+
                 audio_repr = self.experiment.audio_representation(fake, sr)
                 real_audio = real_repr.listen()
                 fake_audio = audio_repr.listen()

@@ -53,6 +53,7 @@ class MelGanGenerator(nn.Module):
 
 
 
+
 class DDSPGenerator(nn.Module):
     def __init__(
             self,
@@ -74,13 +75,14 @@ class DDSPGenerator(nn.Module):
         c = 512
 
         self.main = nn.Sequential(
-            nn.Conv1d(in_channels, c, 1, 1, 0),
+            nn.Conv1d(in_channels, c, 3, 1, 1),
             nn.Conv1d(c, c, 3, 1, 1),
             nn.Conv1d(c, c, 3, 1, 1),
             nn.Conv1d(c, c, 3, 1, 1),
         )
-
         self.n_osc = n_osc
+        self.frequency = nn.Conv1d(c, n_osc * 2, 3, 1, 1)
+
 
         centers = np.array([b.center_frequency for b in scale])
         erbs = (centers * 0.108) + 24.7
@@ -91,7 +93,7 @@ class DDSPGenerator(nn.Module):
         self.total_samples = output_size
 
 
-        self.frequency = nn.Conv1d(c, n_osc * 2, 1, 1, 0)
+
 
         noise_rate = 1024
         self.nl = UpsamplingStack(
@@ -106,10 +108,11 @@ class DDSPGenerator(nn.Module):
                 activation=lambda x: F.leaky_relu(x, 0.2))
         )
         self.noise_loudness = nn.Conv1d(
-            c, (self.total_samples // noise_rate) + 1, 1, 1, 0)
+            c, (self.total_samples // noise_rate) + 1, 3, 1, 1)
 
+        # TODO: derive stops and starts from scale
         # n_osc
-        stops = np.geomspace(20, 11025 / 2, num=n_osc)
+        stops = np.linspace(20, samplerate.nyquist, num=n_osc)
         # n_osc + 1
         freqs = [0] + list(stops)
         # n_osc
@@ -131,30 +134,24 @@ class DDSPGenerator(nn.Module):
 
         osc = self.frequency(x)
         l = osc[:, :self.n_osc, :] ** 2
-        # f = F.sigmoid(osc[:, self.n_osc:, :])
-        # f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
 
-        f = F.tanh(osc[:, self.n_osc:, :]) * 0.5
-        f = self.centers[None, :, None] + (f * self.erbs[None, :, None])
+        f = F.sigmoid(osc[:, self.n_osc:, :])
+        f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
+
+        # f = F.tanh(osc[:, self.n_osc:, :]) * 0.5
+        # f = self.centers[None, :, None] + (f * self.erbs[None, :, None])
 
 
         # desired frequency response of FIR filter in the frequency domain
         x = self.nl(x)
         n_l = self.noise_loudness(x) ** 2
 
-        l = smooth_upsample2(l, size=input_size * self.upsample_factor)
-        f = smooth_upsample2(f, size=input_size * self.upsample_factor)
+        # l = smooth_upsample2(l, size=input_size * self.upsample_factor)
+        # f = smooth_upsample2(f, size=input_size * self.upsample_factor)
+        l = F.upsample(l, scale_factor=self.upsample_factor, mode='linear')
+        f = F.upsample(f, scale_factor=self.upsample_factor, mode='linear')
 
         harmonic = oscillator_bank(f, l, int(self.samplerate)).view(x.shape[0], 1, -1)
         noise = noise_bank2(n_l)
-        # TODO: Bring noise component back int
         x = harmonic + noise
         return x
-
-
-if __name__ == '__main__':
-    input_size = 16
-    g = MelGanGenerator(input_size, 256)
-    inp = torch.FloatTensor((1, 256, input_size)).normal_(0, 1)
-    x = g(inp)
-    print(x.shape)

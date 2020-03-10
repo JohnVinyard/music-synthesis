@@ -49,12 +49,35 @@ weight norm with both of these approaches
 Least squares loss seems to work significantly better for FilterBank and 
 Multiscale experiments
 
+# Monday, March 9, 2020 7AM
+Multi-headed FFT experiment produces very phase-y sounding audio.  Single-headed 
+generator and discriminator pair worked much better.
+
+
+# Monday, March 9, 2020 11AM
+Flattening features from each band in the multiscale experiment is essential, 
+otherwise lower bands are neglected by the generator.
+
 # TODO
- - try multiscale model with transformation *outside* differentiable model
- - think about what it means that multiscale formulation performs well on 
+
+- think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
- - try DDSP with filterbank discriminator
-- re-try least squares loss with all experiments of interest
+
+
+- try DDSP with fixed (non-learnable) frequencies
+ - low learning rate
+ - high learning rate
+ - *try DDSP with filterbank discriminator*
+ - try DDSP with FFT discriminator, or just another one
+ - try DDSP with residual connections in oscillator portion
+ - try DDSP with FM synthesis or banks of octave filters
+
+
+ 
+ 
+ - try filterbank experiment with original MelGAN discriminator
+  - try filterbank experiment with additional filtered noise channels
+ 
 - try weight norm with FilterBank experiment
 - try weight norm with multiscale experiment
 - try conditional discriminator
