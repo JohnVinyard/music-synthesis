@@ -58,37 +58,27 @@ generator and discriminator pair worked much better.
 Flattening features from each band in the multiscale experiment is essential, 
 otherwise lower bands are neglected by the generator.
 
+
+# Wednesday, March 11, 2020 6AM
+Despite some oddly promising early results, the DDSP-style generators seem to
+be unstable and very difficult to train, never converging on satisfying-sounding
+audio.  Putting these away (for now).  Shifting my attention toward conditional
+discriminators next.
+
 # TODO
+- try filterbank experiment with linear-space filters
+- try filterbank experiment with additional filtered noise channels
+- try weight norm with FilterBank experiment
 
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
-
-
-- try DDSP with fixed (non-learnable) frequencies
- - low learning rate
- - high learning rate
- - *try DDSP with filterbank discriminator*
- - try DDSP with FFT discriminator, or just another one
- - try DDSP with residual connections in oscillator portion
- - try DDSP with FM synthesis or banks of octave filters
-
-
- 
- 
- - try filterbank experiment with original MelGAN discriminator
-  - try filterbank experiment with additional filtered noise channels
- 
-- try weight norm with FilterBank experiment
+- try filterbank experiment with original MelGAN discriminator
 - try weight norm with multiscale experiment
 - try conditional discriminator
-- how does initialization affect outcome?
+
 - organize spectrogram differently, with octaves grouped together
     - `(batch, channels, octave, f0, time)`
-
-# DONE
-- ~~try multiscale experiment without low-res FFT component~~
-    - This results in significantly less intelligible speech than the MelGAN
-       formulation.  It should be removed from the winner's circle, for now.
+- try DDSP with FM synthesis or banks of octave filters
 
 # Tools
 - experiments configured in JSON file
