@@ -312,26 +312,42 @@ class LowResSpectrogramDiscriminator(nn.Module):
         return features, j
 
 
-def weight_norm(x):
-    return x
+
 
 
 class ResidualAtom(nn.Module):
-    def __init__(self, channels, dilation):
+    def __init__(self, channels, dilation, add_weight_norm):
         super().__init__()
+        self.add_weight_norm = add_weight_norm
         self.dilation = dilation
         self.channels = channels
         padding = dilation
-        self.main = nn.Sequential(
-            weight_norm(nn.Conv1d(
-                channels,
-                channels,
-                3,
-                1,
-                dilation=dilation,
-                padding=padding)),
-            weight_norm(nn.Conv1d(channels, channels, 3, 1, 1))
-        )
+
+        first =  nn.Conv1d(
+            channels,
+            channels,
+            3,
+            1,
+            dilation=dilation,
+            padding=padding)
+        second = nn.Conv1d(channels, channels, 3, 1, 1)
+        if self.add_weight_norm:
+            first = weight_norm(first)
+            second = weight_norm(second)
+
+        self.main = nn.Sequential(first, second)
+
+
+        # self.main = nn.Sequential(
+        #     weight_norm(nn.Conv1d(
+        #         channels,
+        #         channels,
+        #         3,
+        #         1,
+        #         dilation=dilation,
+        #         padding=padding)),
+        #     weight_norm(nn.Conv1d(channels, channels, 3, 1, 1))
+        # )
 
     def forward(self, x):
         orig = x
@@ -341,14 +357,14 @@ class ResidualAtom(nn.Module):
 
 
 class ResidualStack(nn.Module):
-    def __init__(self, channels, dilations):
+    def __init__(self, channels, dilations, add_weight_norm=False):
         super().__init__()
         self.dilations = dilations
         self.channels = channels
         self.main = nn.Sequential(
-            ResidualAtom(channels, 1),
-            ResidualAtom(channels, 3),
-            ResidualAtom(channels, 9),
+            ResidualAtom(channels, 1, add_weight_norm),
+            ResidualAtom(channels, 3, add_weight_norm),
+            ResidualAtom(channels, 9, add_weight_norm),
         )
 
     def forward(self, x):

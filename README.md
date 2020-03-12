@@ -65,16 +65,31 @@ be unstable and very difficult to train, never converging on satisfying-sounding
 audio.  Putting these away (for now).  Shifting my attention toward conditional
 discriminators next.
 
+# Thursday, March 11, 2020 6AM
+Using linear-spaced filters in both the generator and discriminator seems to 
+help audio quality.  My hunch is that using mel-spaced oscillators for the 
+generator greatly limits its ability to produce accurate frequencies in higher
+ranges
+
 # TODO
-- try filterbank experiment with linear-space filters
-- try filterbank experiment with additional filtered noise channels
-- try weight norm with FilterBank experiment
+- *try filterbank experiment with additional filtered noise channels*
+- *try mel scale discriminator and linear-spaced generator*
+- *try filterbank discriminator without multiscale*
+- *try weight norm with FilterBank experiment*
+- *try dilated convolutions in filterbank generator*
+
+
+- try conditional discriminator
+
+- try filterbank with log-scaled magnitudes, or a-weighting
+- try filterbank with only small-scale
+
 
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
 - try filterbank experiment with original MelGAN discriminator
 - try weight norm with multiscale experiment
-- try conditional discriminator
+
 
 - organize spectrogram differently, with octaves grouped together
     - `(batch, channels, octave, f0, time)`
