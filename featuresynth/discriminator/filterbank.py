@@ -112,14 +112,16 @@ class LargeReceptiveFieldFilterBankDiscriminator(nn.Module):
 
 
 class FilterBankDiscriminator(nn.Module):
-    def __init__(self, filter_bank, input_size):
+    def __init__(self, filter_bank, input_size, conditioning_channels=0):
         super().__init__()
+        self.conditioning_channels = conditioning_channels
         self.input_size = input_size
         self._filter_bank = [filter_bank]
 
-        in_channels = self.filter_bank.filter_bank.shape[0]
+        # in_channels = self.filter_bank.filter_bank.shape[0]
+        in_channels = self.filter_bank.n_bands
         self.main = nn.Sequential(
-            nn.Conv1d(in_channels, 256, 7, 2, 3),
+            nn.Conv1d(in_channels + conditioning_channels, 256, 7, 2, 3),
             nn.Conv1d(256, 256, 7, 2, 3),
             nn.Conv1d(256, 512, 7, 2, 3),
             nn.Conv1d(512, 512, 7, 2, 3),
@@ -159,8 +161,17 @@ class FilterBankDiscriminator(nn.Module):
         x = self.judge(x)
         return features, x
 
-    def forward(self, x):
+    def forward(self, x, features):
         x = self.filter_bank.convolve(x)
+
+        if self.conditioning_channels > 0:
+            # TODO: Consider the alternative (and less memory-intensive) option
+            # adding together unconditioned and computed features, as seen here:
+            # https://arxiv.org/pdf/1909.11646.pdf#page=5
+            # https://github.com/yanggeng1995/GAN-TTS/blob/master/models/discriminator.py#L67
+            feat = F.upsample(features, size=x.shape[-1])
+            x = torch.cat([x, feat], dim=1)
+            print(x.shape)
 
         features = []
         judgements = []
@@ -169,11 +180,11 @@ class FilterBankDiscriminator(nn.Module):
         features.append(f)
         judgements.append(j)
 
-        f, j = self.medium_res(x)
+        f, j = self.medium_res(x, features)
         features.append(f)
         judgements.append(j)
 
-        f, j = self.low_res(x)
+        f, j = self.low_res(x, features)
         features.append(f)
         judgements.append(j)
 

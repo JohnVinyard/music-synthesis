@@ -27,8 +27,8 @@ class GeneratorTrainer(object):
         zero_grad(self.g_optim, self.d_optim)
 
         fake = self.generator(features)
-        f_features, f_score = self.discriminator(fake)
-        r_features, r_score = self.discriminator(samples)
+        f_features, f_score = self.discriminator(fake, features)
+        r_features, r_score = self.discriminator(samples, features)
 
         loss = self.loss(
             r_features, f_features, r_score, f_score, gan_loss=self.sub_loss)
@@ -64,8 +64,8 @@ class DiscriminatorTrainer(object):
         zero_grad(self.g_optim, self.d_optim)
 
         fake = self.generator(features)
-        _, f_score = self.discriminator(fake)
-        _, r_score = self.discriminator(samples)
+        _, f_score = self.discriminator(fake, features)
+        _, r_score = self.discriminator(samples, features)
 
         loss = self.loss(r_score, f_score, gan_loss=self.sub_loss)
         loss.backward()

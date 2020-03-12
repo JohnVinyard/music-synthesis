@@ -270,8 +270,11 @@ class LowResSpectrogramDiscriminator(nn.Module):
             time_steps,
             n_judgements,
             kernel_size,
-            max_channels):
+            max_channels,
+            conditioning_channels=0):
+
         super().__init__()
+        self.conditioning_channels = conditioning_channels
         self.max_channels = max_channels
         self.kernel_size = kernel_size
         self.n_judgements = n_judgements
@@ -288,6 +291,8 @@ class LowResSpectrogramDiscriminator(nn.Module):
     def _build_layer(self, i, curr_size, out_size, first, last):
         log_channels = np.log2(self.freq_bins)
         in_channels = min(self.max_channels, 2 ** (i + log_channels))
+        if first:
+            in_channels += self.conditioning_channels
         out_channels = min(self.max_channels, 2 ** (i + log_channels + 1))
         return nn.Conv1d(
             in_channels=int(in_channels),
@@ -296,7 +301,7 @@ class LowResSpectrogramDiscriminator(nn.Module):
             stride=2,
             padding=self.kernel_size // 2)
 
-    def forward(self, x):
+    def forward(self, x, features):
         batch, channels, time = x.shape
         channel_window = channels // self.freq_bins
         time_window = time // self.time_steps
@@ -304,6 +309,20 @@ class LowResSpectrogramDiscriminator(nn.Module):
             F.relu(x)[:, None, :, :],
             (channel_window, time_window))
         low_res = low_res.view(-1, self.freq_bins, self.time_steps)
+
+        if self.conditioning_channels > 0:
+            # TODO: Consider the alternative (and less memory-intensive) option
+            # adding together unconditioned and computed features, as seen here:
+            # https://arxiv.org/pdf/1909.11646.pdf#page=5
+            # https://github.com/yanggeng1995/GAN-TTS/blob/master/models/discriminator.py#L67
+            if features.shape[-1] < low_res.shape[-1]:
+                feat = F.upsample(features, size=low_res.shape[-1])
+            elif features.shape[-1] > low_res.shape[-1]:
+                factor = features.shape[-1] // low_res.shape[-1]
+                feat = F.avg_pool1d(features, factor)
+            low_res = torch.cat([low_res, feat], dim=1)
+            print(low_res.shape)
+
         features = []
         for layer in self.stack:
             low_res = F.leaky_relu(layer(low_res), 0.2)
