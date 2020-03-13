@@ -1,7 +1,7 @@
 from ..audio import RawAudio
 from ..audio.representation import BasePhaseRecovery
 from ..train import GeneratorTrainer, DiscriminatorTrainer
-from ..experiment import FilterBankExperiment
+from ..experiment import FilterBankExperiment, ComplexSTFTExperiment
 from ..featuregenerator import SpectrogramFeatureGenerator
 from ..featurediscriminator import SpectrogramFeatureDiscriminator
 from ..feature import spectrogram
@@ -188,9 +188,9 @@ class BaseFeatureExperiment(object):
     def features_to_audio(self, features):
         batch_size = features.shape[0]
         features = torch.from_numpy(features)
-        audio = self.vocoder(features)
-        audio = audio.reshape((batch_size, 1, -1))
-        return self.audio_repr_class.from_audio(audio, self.samplerate)
+        audio_features = self.vocoder(features).data.cpu().numpy()
+        # audio_features = audio_features.reshape((batch_size, 1, -1))
+        return self.audio_repr_class(audio_features, self.samplerate)
 
 
 class TestFeatureExperiment(BaseFeatureExperiment):
@@ -206,7 +206,9 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
         # TODO: I actually need to use the conditional filter bank experiment
         # here. All experiments, or at least those I care about using in this
         # second phase, should implement this basic class-level interface
-        vocoder_exp = FilterBankExperiment
+
+        # vocoder_exp = FilterBankExperiment
+        vocoder_exp = ComplexSTFTExperiment
         samplerate = vocoder_exp.SAMPLERATE
 
         generator = vocoder_exp.make_generator()
@@ -251,7 +253,7 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
             feature_spec={
                 'spectrogram': (512, vocoder_exp.N_MELS)
             },
-            audio_repr_class=RawAudio,
+            audio_repr_class=vocoder_exp.AUDIO_REPR_CLASS,
             learning_rate=1e-4,
             condition_shape=(noise_dim, 1),
             samplerate=samplerate)

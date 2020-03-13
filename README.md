@@ -72,8 +72,8 @@ generator greatly limits its ability to produce accurate frequencies in higher
 ranges
 
 # TODAY
-- autoregressive feature generator experiment
 - normal feature generator experiment using alternate audio repr
+- autoregressive feature generator experiment
 - autoregressive feature generator experiment using alternate audio repr
 
 

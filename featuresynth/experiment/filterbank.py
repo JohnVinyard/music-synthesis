@@ -30,6 +30,7 @@ class FilterBankExperiment(Experiment):
     N_FFT = 1024
     HOP = 256
     TOTAL_SAMPLES = 8192
+    AUDIO_REPR_CLASS = RawAudio
 
     @classmethod
     def make_filter_bank(cls, samplerate):
@@ -60,7 +61,7 @@ class FilterBankExperiment(Experiment):
             discriminator=FilterBankDiscriminator(filter_bank, self.TOTAL_SAMPLES),
             learning_rate=1e-4,
             feature_size=self.FEATURE_SIZE,
-            audio_repr_class=RawAudio,
+            audio_repr_class=self.AUDIO_REPR_CLASS,
             generator_loss=mel_gan_gen_loss,
             sub_gen_loss=least_squares_generator_loss,
             discriminator_loss=mel_gan_disc_loss,

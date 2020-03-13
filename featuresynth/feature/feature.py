@@ -61,8 +61,6 @@ class Audio2Mel(nn.Module):
 
 data_cache = LmdbCollection('datacache')
 
-# audio_to_mel = Audio2Mel().to(device)
-
 @cache(data_cache)
 def audio(file_path, samplerate):
     samples = zounds.AudioSamples.from_file(file_path).mono
@@ -73,6 +71,7 @@ def audio(file_path, samplerate):
 
 
 def normalized_and_augmented_audio(file_path, samplerate):
+    raise RuntimeError('You should be using audio()')
     samples = audio(file_path, samplerate)[:]
     samples = librosa.util.normalize(samples, axis=-1) * 0.95
     amp = np.random.uniform(low=0.3, high=1.0)
@@ -91,6 +90,7 @@ def spectrogram(file_path, samplerate):
     return spec
 
 def make_spectrogram_func(audio_func, samplerate, n_fft, hop, n_mels):
+
     atm = Audio2Mel(
         win_length=n_fft,
         hop_length=hop,
@@ -99,6 +99,7 @@ def make_spectrogram_func(audio_func, samplerate, n_fft, hop, n_mels):
         n_mel_channels=n_mels)
 
     def func(file_path, samplerate):
+        raise RuntimeError('You should be using spectrogram()')
         samples = audio_func(file_path, samplerate)
         spec = atm(samples)
         spec = spec.data.cpu().numpy().T.astype(np.float32)
