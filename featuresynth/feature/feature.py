@@ -41,9 +41,8 @@ class Audio2Mel(nn.Module):
         if isinstance(audio, np.ndarray):
             audio = torch.from_numpy(audio).view(1, 1, -1)
 
-        # p = (self.n_fft - self.hop_length) // 2
-        p = audio.shape[-1] // self.hop_length
-        audio = F.pad(audio, (p, p), "reflect").squeeze(1)
+        p = (self.n_fft - self.hop_length) // 2
+        audio = F.pad(audio, (0, p)).squeeze(1)
 
         fft = torch.stft(
             audio,
@@ -69,6 +68,7 @@ def audio(file_path, samplerate):
     samples = zounds.AudioSamples.from_file(file_path).mono
     samples = librosa.resample(
         samples, int(samples.samplerate), int(samplerate))
+    samples = librosa.util.normalize(samples, axis=-1) * 0.95
     return samples.astype(np.float32)
 
 
@@ -79,10 +79,24 @@ def normalized_and_augmented_audio(file_path, samplerate):
     samples = samples * amp
     return samples
 
+audio_to_mel_22050 = Audio2Mel(
+    1024, 256, 1024, int(zounds.SR22050()), 128)
 
+
+@cache(data_cache)
+def spectrogram(file_path, samplerate):
+    samples = audio(file_path, samplerate)[:]
+    spec = audio_to_mel_22050(samples)
+    spec = spec.data.cpu().numpy().T.astype(np.float32)
+    return spec
 
 def make_spectrogram_func(audio_func, samplerate, n_fft, hop, n_mels):
-    atm = Audio2Mel(n_fft, hop, n_fft, int(samplerate), n_mels)
+    atm = Audio2Mel(
+        win_length=n_fft,
+        hop_length=hop,
+        n_fft=n_fft,
+        sampling_rate=int(samplerate),
+        n_mel_channels=n_mels)
 
     def func(file_path, samplerate):
         samples = audio_func(file_path, samplerate)
