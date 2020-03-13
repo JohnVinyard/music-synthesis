@@ -72,8 +72,6 @@ generator greatly limits its ability to produce accurate frequencies in higher
 ranges
 
 # TODAY
-- ~~basic feature generator experiment working using neural vocoder~~
-- ~~basic feature generator experiment working using LWS vocoder~~
 - autoregressive feature generator experiment
 - normal feature generator experiment using alternate audio repr
 - autoregressive feature generator experiment using alternate audio repr

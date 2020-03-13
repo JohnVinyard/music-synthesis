@@ -1,2 +1,2 @@
 from .discriminator import *
-from .upscale import LowResDiscriminator
+from .upscale import SpectrogramFeatureDiscriminator

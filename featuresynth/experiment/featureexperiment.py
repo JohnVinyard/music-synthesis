@@ -2,8 +2,9 @@ from ..audio import RawAudio
 from ..audio.representation import BasePhaseRecovery
 from ..train import GeneratorTrainer, DiscriminatorTrainer
 from ..experiment import FilterBankExperiment
-from ..featuregenerator import LowResGenerator
-from ..featurediscriminator import LowResDiscriminator
+from ..featuregenerator import SpectrogramFeatureGenerator
+from ..featurediscriminator import SpectrogramFeatureDiscriminator
+from ..feature import spectrogram
 from .init import weights_init
 from ..data import batch_stream
 from ..loss import least_squares_generator_loss, least_squares_disc_loss
@@ -221,8 +222,7 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
         #     samplerate, vocoder_exp.N_FFT, vocoder_exp.N_MELS)
         # vocoder = DeterministicVocoder(phase_vocoder, samplerate)
 
-        spec_func = vocoder_exp.make_spec_func()
-
+        # spec_func = vocoder_exp.make_spec_func()
 
         disc_channels = 256
 
@@ -235,18 +235,18 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
 
         super().__init__(
             vocoder=vocoder,
-            feature_generator=LowResGenerator(
+            feature_generator=SpectrogramFeatureGenerator(
                 out_channels=vocoder_exp.N_MELS,
                 noise_dim=noise_dim),
             generator_init=weights_init,
             generator_loss=gen_loss,
-            feature_disc=LowResDiscriminator(
+            feature_disc=SpectrogramFeatureDiscriminator(
                 feature_channels=vocoder_exp.N_MELS,
                 channels=disc_channels),
             disc_init=weights_init,
             disc_loss=disc_loss,
             feature_funcs={
-                'spectrogram': (spec_func, (samplerate,))
+                'spectrogram': (spectrogram, (samplerate,))
             },
             feature_spec={
                 'spectrogram': (512, vocoder_exp.N_MELS)

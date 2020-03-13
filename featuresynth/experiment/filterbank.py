@@ -11,21 +11,6 @@ from ..feature import \
 from ..loss import least_squares_disc_loss, least_squares_generator_loss
 
 
-"""
-https://openreview.net/pdf?id=9jTbNbBNw0
-Things to try:
-
-- larger receptive field in discriminator - Less long range coherence
-- residual blocks in generator - Still doesn't converge to meaningful speech
-- just low resolution - this results in more long ran
-- max pooling instead of average pooling in discriminator
-- different padding (reflection, replication)
-- conditioned discriminator
-"""
-
-
-
-
 
 class FilterBankExperiment(Experiment):
     """
@@ -67,50 +52,13 @@ class FilterBankExperiment(Experiment):
             filter_bank, cls.FEATURE_SIZE, cls.TOTAL_SAMPLES, cls.N_MELS)
 
 
-    @classmethod
-    def make_spec_func(cls):
-        return make_spectrogram_func(
-            normalized_and_augmented_audio,
-            cls.SAMPLERATE,
-            cls.N_FFT,
-            cls.HOP,
-            cls.N_MELS)
-
     def __init__(self):
-        # n_mels = 128
-        # feature_size = 32
-        # sr = zounds.SR22050()
-        # n_fft = 1024
-        # hop = 256
-        # total_samples = 8192
-
-        # scale = zounds.LinearScale(
-        #     zounds.FrequencyBand(20, sr.nyquist - 20), 128)
-        # filter_bank = zounds.learn.FilterBank(
-        #     sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
-
         filter_bank = self.make_filter_bank(self.SAMPLERATE)
 
-        # spec_func = make_spectrogram_func(
-        #     normalized_and_augmented_audio, sr, n_fft, hop, n_mels)
-
-        # spec_func = make_spectrogram_func(
-        #     normalized_and_augmented_audio,
-        #     self.SAMPLERATE,
-        #     self.N_FFT,
-        #     self.HOP,
-        #     self.N_MELS)
-
-        # spec_func = self.make_spec_func()
-
         super().__init__(
-            # generator=FilterBankGenerator(
-            #     filter_bank, feature_size, total_samples, n_mels),
             generator=self.make_generator(),
-            # discriminator=FilterBankDiscriminator(filter_bank, total_samples),
             discriminator=FilterBankDiscriminator(filter_bank, self.TOTAL_SAMPLES),
             learning_rate=1e-4,
-            # feature_size=feature_size,
             feature_size=self.FEATURE_SIZE,
             audio_repr_class=RawAudio,
             generator_loss=mel_gan_gen_loss,

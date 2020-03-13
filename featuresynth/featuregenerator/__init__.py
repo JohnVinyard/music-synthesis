@@ -1,2 +1,2 @@
 from .generator import *
-from .upscale import LowResGenerator
+from .upscale import SpectrogramFeatureGenerator
