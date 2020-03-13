@@ -9,3 +9,6 @@ from .filterbank import \
     FilterBankExperiment, AlternateFilterBankExperiment, \
     ConditionalFilterBankExperiment
 from .report import Report
+
+
+from .featureexperiment import TestFeatureExperiment

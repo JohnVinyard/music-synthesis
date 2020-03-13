@@ -182,13 +182,10 @@ class Discriminator(nn.Module):
 
 
 class LowResDiscriminator(nn.Module):
-    def __init__(self, frames, feature_channels, channels, n_judgements, ae):
+    def __init__(self, feature_channels, channels):
         super().__init__()
-        self.ae = ae
-        self.n_judgements = n_judgements
         self.channels = channels
         self.feature_channels = feature_channels
-        self.frames = frames
 
         self.stack = DilatedStack(
             feature_channels,
@@ -212,16 +209,16 @@ class LowResDiscriminator(nn.Module):
         #
         # self.judge = nn.Linear(2048, 1, bias=False)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                # weight.data.normal_(0, 0.02)
-                if 'judge' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('leaky_relu', 0.2))
-        return self
+    # def initialize_weights(self):
+    #     for name, weight in self.named_parameters():
+    #         if weight.data.dim() > 2:
+    #             # weight.data.normal_(0, 0.02)
+    #             if 'judge' in name:
+    #                 xavier_normal_(weight.data, 1)
+    #             else:
+    #                 xavier_normal_(
+    #                     weight.data, calculate_gain('leaky_relu', 0.2))
+    #     return self
 
     def forward(self, x):
 

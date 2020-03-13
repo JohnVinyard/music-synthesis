@@ -74,7 +74,7 @@ if __name__ == '__main__':
                 path, pattern, args.batch_size)
 
 
-        steps = experiment.training_steps
+        # steps = experiment.training_steps
 
         def log_features(exp, pre, result, iteration, elapsed):
             _, features = pre

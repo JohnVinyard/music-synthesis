@@ -202,13 +202,10 @@ def make_stack(start_size, target_size, layer_func):
     return nn.Sequential(*layers)
 
 class LowResGenerator(nn.Module):
-    def __init__(self, frames, out_channels, noise_dim, initial_dim, channels, ae):
+    def __init__(self, out_channels, noise_dim):
         super().__init__()
-        self.channels = channels
-        self.initial_dim = initial_dim
         self.noise_dim = noise_dim
         self.out_channels = out_channels
-        self.frames = frames
 
         # self.to_time_series = ToTimeSeries(noise_dim, channels, initial_dim)
         # self.initial = DilatedStack(
@@ -245,15 +242,15 @@ class LowResGenerator(nn.Module):
         #     lambda i: nn.ConvTranspose2d(channels, channels, (4, 4), (2, 2), (1, 1), bias=False))
         # self.to_frames = nn.Conv1d(channels, 1, (3, 3), (1, 1), (1, 1), bias=False)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'to_frames' in name:
-                    xavier_normal_(weight.data, 1)
-                else:
-                    xavier_normal_(weight.data,
-                                   calculate_gain('leaky_relu', 0.2))
-        return self
+    # def initialize_weights(self):
+    #     for name, weight in self.named_parameters():
+    #         if weight.data.dim() > 2:
+    #             if 'to_frames' in name:
+    #                 xavier_normal_(weight.data, 1)
+    #             else:
+    #                 xavier_normal_(weight.data,
+    #                                calculate_gain('leaky_relu', 0.2))
+    #     return self
 
     def forward(self, x):
         # x = self.to_time_series(x)
@@ -266,9 +263,11 @@ class LowResGenerator(nn.Module):
         x = x.view(x.shape[0], -1, 4, 4)
         for i, layer in enumerate(self.stack):
             if i == len(self.stack) - 1:
+                # TODO: Probably lose the normalization and the squared
+                # activation
                 x = normalize(layer(x) ** 2)
             else:
                 x = F.leaky_relu(layer(x), 0.2)
 
-        x = x.view(x.shape[0], self.out_channels, self.frames)
+        x = x.view(x.shape[0], self.out_channels, -1)
         return x

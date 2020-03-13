@@ -38,28 +38,79 @@ class FilterBankExperiment(Experiment):
     by the basic MelGAN setup.
     """
 
-    def __init__(self):
-        n_mels = 128
-        feature_size = 32
-        sr = zounds.SR22050()
-        n_fft = 1024
-        hop = 256
-        total_samples = 8192
+    N_MELS = 128
+    FEATURE_SIZE = 32
+    SAMPLERATE = zounds.SR22050()
+    N_FFT = 1024
+    HOP = 256
+    TOTAL_SAMPLES = 8192
 
+    @classmethod
+    def make_filter_bank(cls, samplerate):
         scale = zounds.LinearScale(
-            zounds.FrequencyBand(20, sr.nyquist - 20), 128)
+            zounds.FrequencyBand(20, samplerate.nyquist - 20), 128)
         filter_bank = zounds.learn.FilterBank(
-            sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
+            samplerate,
+            511,
+            scale,
+            0.9,
+            normalize_filters=True,
+            a_weighting=False)
+        return filter_bank
 
-        spec_func = make_spectrogram_func(
-            normalized_and_augmented_audio, sr, n_fft, hop, n_mels)
+
+    @classmethod
+    def make_generator(cls, filter_bank=None):
+        filter_bank = filter_bank or cls.make_filter_bank(cls.SAMPLERATE)
+        return FilterBankGenerator(
+            filter_bank, cls.FEATURE_SIZE, cls.TOTAL_SAMPLES, cls.N_MELS)
+
+
+    @classmethod
+    def make_spec_func(cls):
+        return make_spectrogram_func(
+            normalized_and_augmented_audio,
+            cls.SAMPLERATE,
+            cls.N_FFT,
+            cls.HOP,
+            cls.N_MELS)
+
+    def __init__(self):
+        # n_mels = 128
+        # feature_size = 32
+        # sr = zounds.SR22050()
+        # n_fft = 1024
+        # hop = 256
+        # total_samples = 8192
+
+        # scale = zounds.LinearScale(
+        #     zounds.FrequencyBand(20, sr.nyquist - 20), 128)
+        # filter_bank = zounds.learn.FilterBank(
+        #     sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
+
+        filter_bank = self.make_filter_bank(self.SAMPLERATE)
+
+        # spec_func = make_spectrogram_func(
+        #     normalized_and_augmented_audio, sr, n_fft, hop, n_mels)
+
+        # spec_func = make_spectrogram_func(
+        #     normalized_and_augmented_audio,
+        #     self.SAMPLERATE,
+        #     self.N_FFT,
+        #     self.HOP,
+        #     self.N_MELS)
+
+        spec_func = self.make_spec_func()
 
         super().__init__(
-            generator=FilterBankGenerator(
-                filter_bank, feature_size, total_samples, n_mels),
-            discriminator=FilterBankDiscriminator(filter_bank, total_samples),
+            # generator=FilterBankGenerator(
+            #     filter_bank, feature_size, total_samples, n_mels),
+            generator=self.make_generator(),
+            # discriminator=FilterBankDiscriminator(filter_bank, total_samples),
+            discriminator=FilterBankDiscriminator(filter_bank, self.TOTAL_SAMPLES),
             learning_rate=1e-4,
-            feature_size=feature_size,
+            # feature_size=feature_size,
+            feature_size=self.FEATURE_SIZE,
             audio_repr_class=RawAudio,
             generator_loss=mel_gan_gen_loss,
             sub_gen_loss=least_squares_generator_loss,
@@ -68,12 +119,12 @@ class FilterBankExperiment(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (sr,)),
-                'spectrogram': (spec_func, (sr,))
+                'audio': (normalized_and_augmented_audio, (self.SAMPLERATE,)),
+                'spectrogram': (spec_func, (self.SAMPLERATE,))
             },
-            total_samples=total_samples,
-            feature_channels=n_mels,
-            samplerate=sr,
+            total_samples=self.TOTAL_SAMPLES,
+            feature_channels=self.N_MELS,
+            samplerate=self.SAMPLERATE,
             inference_sequence_factor=4)
 
 
