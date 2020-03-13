@@ -90,13 +90,14 @@ def generate_image(data):
 
 
 class Report(object):
-    def __init__(self, experiment):
+    def __init__(self, experiment, prefix=''):
+        self.prefix = prefix
         self.experiment = experiment
 
     @property
     def bucket_name(self):
         base = self.experiment.__class__.__name__.lower()
-        return f'generation-report-{base}'
+        return f'generation-report-{self.prefix}{base}'
 
     def _local_file(self, filename):
         path, _ = os.path.split(__file__)

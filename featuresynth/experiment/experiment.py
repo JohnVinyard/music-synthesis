@@ -152,21 +152,21 @@ class Experiment(BaseGanExperiment):
         name = name.replace('experiment', '')
         return name
 
-    def _gen_name(self):
+    def _gen_name(self, prefix=''):
         name = self._name()
-        return f'{name}_gen.dat'
+        return f'{prefix}{name}_gen.dat'
 
-    def _disc_name(self):
+    def _disc_name(self, prefix=''):
         name = self._name()
-        return f'{name}_disc.dat'
+        return f'{prefix}{name}_disc.dat'
 
-    def checkpoint(self):
-        torch.save(self.generator.state_dict(), self._gen_name())
-        torch.save(self.discriminator.state_dict(), self._disc_name())
+    def checkpoint(self, prefix=''):
+        torch.save(self.generator.state_dict(), self._gen_name(prefix))
+        torch.save(self.discriminator.state_dict(), self._disc_name(prefix))
 
-    def resume(self):
-        self.generator.load_state_dict(torch.load(self._gen_name()))
-        self.discriminator.load_state_dict(torch.load(self._disc_name()))
+    def resume(self, prefix=''):
+        self.generator.load_state_dict(torch.load(self._gen_name(prefix)))
+        self.discriminator.load_state_dict(torch.load(self._disc_name(prefix)))
 
     @property
     def generator(self):

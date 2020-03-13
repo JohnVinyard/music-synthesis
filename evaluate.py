@@ -10,7 +10,7 @@ from featuresynth.train import training_loop
 
 import argparse
 
-path = '/hdd/LJSpeech-1.1'
+path = '/hdd/musicnet/train_data'
 pattern = '*.wav'
 
 if __name__ == '__main__':
@@ -23,6 +23,9 @@ if __name__ == '__main__':
         '--resume',
         help='Load weights for the models before training',
         action='store_true')
+    parser.add_argument(
+        '--prefix',
+        default='')
     parser.add_argument(
         '--experiment',
         help='Class name of the experiment to run',
@@ -53,7 +56,7 @@ if __name__ == '__main__':
     experiment = experiment.to(device)
 
     if args.report:
-        report = Report(experiment)
+        report = Report(experiment, args.prefix)
         report.generate(
             path,
             pattern,
@@ -61,7 +64,7 @@ if __name__ == '__main__':
             regenerate=not args.report_source_update_only)
     else:
         if args.resume:
-            experiment.resume()
+            experiment.resume(args.prefix)
 
         app = zounds.ZoundsApp(globals=globals(), locals=locals())
         app.start_in_thread(8888)
