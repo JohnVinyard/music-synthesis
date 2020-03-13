@@ -255,7 +255,10 @@ class BasePhaseRecovery(BaseAudioRepresentation):
     Adapted from Chris Donahue's IPython notebook here:
     https://colab.research.google.com/drive/10R44MqmTot_bKSdBbyP_KYQ-Elu475eB#scrollTo=Rk6KHaiaz5c9
     """
-    proc = lws.lws(1024, 256, perfectrec=True)
+    N_FFT = 1024
+    HOP = 256
+
+    proc = lws.lws(N_FFT, HOP, perfectrec=True, mode='music')
     basis = None
 
     def __init__(self, data, samplerate):
@@ -263,18 +266,33 @@ class BasePhaseRecovery(BaseAudioRepresentation):
 
     def to_audio(self):
         coeffs = self.data
+        batch, channels, time = coeffs.shape
+        expected_samples = time * self.HOP
         coeffs = np.exp(coeffs)
         pinv = np.linalg.pinv(self.basis)
-        mag = np.matmul(coeffs, pinv.T)
-        coeffs = self.proc.run_lws(mag)
-        samples = self.proc.istft(coeffs)
-        return zounds.AudioSamples(samples, self.samplerate)[None, :]
+        mag = np.tensordot(coeffs, pinv, ((1,), (1,)))
+        samples = []
+        for m in mag:
+            c = self.proc.run_lws(m)
+            s = self.proc.istft(c)
+            s = s[:expected_samples]
+            samples.append(s)
+        samples = np.concatenate([s[None, :] for s in samples], axis=0)
+        return samples
 
     @classmethod
     def from_audio(cls, samples, samplerate):
-        coeffs = cls.proc.stft(samples)
+        batch, _, time = samples.shape
+        expected_frames = time // cls.HOP
+        coeffs = []
+        for sample in samples:
+            c = cls.proc.stft(sample.squeeze())
+            c = c[:expected_frames, :].T  # (time, channels) => (channels, time)
+            coeffs.append(c[None, ...])
+        coeffs = np.concatenate(coeffs, axis=0)
         mag = np.abs(coeffs)
-        coeffs = np.matmul(mag, cls.basis.T)
+        coeffs = np.tensordot(mag, cls.basis, ((1,), (1,)))
+        coeffs = coeffs.transpose((0, 2, 1  ))
         coeffs = np.log(coeffs + 1e-12)
         return cls(coeffs, samplerate)
 

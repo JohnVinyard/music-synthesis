@@ -1,4 +1,5 @@
 from ..audio import RawAudio
+from ..audio.representation import BasePhaseRecovery
 from ..train import GeneratorTrainer, DiscriminatorTrainer
 from ..experiment import FilterBankExperiment
 from ..featuregenerator import LowResGenerator
@@ -10,18 +11,37 @@ from torch.optim import Adam
 import torch
 from itertools import cycle
 import numpy as np
+from librosa.filters import mel
+
+def make_phase_vocoder_class(samplerate, n_fft, n_mels):
+
+    class PhaseRecovery(BasePhaseRecovery):
+        basis = mel(
+            sr=int(samplerate),
+            n_fft=n_fft,
+            n_mels=n_mels)
+
+    return PhaseRecovery
 
 class BaseVocoder(object):
     def __call__(self, features):
         raise NotImplementedError()
 
+class DeterministicVocoder(BaseVocoder):
+    def __init__(self, repr_class, samplerate):
+        super().__init__()
+        self.samplerate = samplerate
+        self.repr_class = repr_class
 
-class PhaseRecoveryVocoder(BaseVocoder):
-    # TODO: Use a the BasePhaseRecoveryVocoder from the audio representation
-    # module
-    pass
+    def __call__(self, features):
+        try:
+            features = features.data.cpu().numpy()
+        except AttributeError:
+            pass
+        r = self.repr_class(features, self.samplerate)
+        return r.to_audio()
 
-class NeuralVocoder(object):
+class NeuralVocoder(BaseVocoder):
     def __init__(self, network):
         self.network = network
 
@@ -165,13 +185,11 @@ class BaseFeatureExperiment(object):
         return spec, conditioning
 
     def features_to_audio(self, features):
-        # TODO: Use the audio representation class here, instead of naively
-        # converting directly to raw audio
+        batch_size = features.shape[0]
         features = torch.from_numpy(features)
         audio = self.vocoder(features)
+        audio = audio.reshape((batch_size, 1, -1))
         return self.audio_repr_class.from_audio(audio, self.samplerate)
-
-
 
 
 class TestFeatureExperiment(BaseFeatureExperiment):
@@ -188,10 +206,23 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
         # here. All experiments, or at least those I care about using in this
         # second phase, should implement this basic class-level interface
         vocoder_exp = FilterBankExperiment
+        samplerate = vocoder_exp.SAMPLERATE
+
         generator = vocoder_exp.make_generator()
         generator = vocoder_exp.load_generator_weights(generator)
+        vocoder = NeuralVocoder(generator)
+
+        # TODO: The determinstic vocoder is still out of reach and would require
+        # some changes such that my mel feature computations align with those
+        # in BasedPhaseRecovery.  The basic mechanics of this are working,
+        # however
+
+        # phase_vocoder = make_phase_vocoder_class(
+        #     samplerate, vocoder_exp.N_FFT, vocoder_exp.N_MELS)
+        # vocoder = DeterministicVocoder(phase_vocoder, samplerate)
+
         spec_func = vocoder_exp.make_spec_func()
-        samplerate = vocoder_exp.SAMPLERATE
+
 
         disc_channels = 256
 
@@ -201,8 +232,9 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
         def disc_loss(r_score, f_score, gan_loss):
             return least_squares_disc_loss(r_score, f_score)
 
+
         super().__init__(
-            vocoder=NeuralVocoder(generator),
+            vocoder=vocoder,
             feature_generator=LowResGenerator(
                 out_channels=vocoder_exp.N_MELS,
                 noise_dim=noise_dim),
