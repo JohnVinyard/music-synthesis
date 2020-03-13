@@ -5,10 +5,10 @@ from featuresynth.train import training_loop
 import torch
 import zounds
 
-path = ''
-pattern = ''
+path = '/hdd/musicnet/train_data'
+pattern = '*.wav'
 
-if __name__ == '__wav__':
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--resume',
@@ -55,11 +55,17 @@ if __name__ == '__wav__':
         # loss values
         return {k: v for k, v in result.items() if isinstance(v, float)}
 
-    tl = training_loop(batch_stream, experiment, [
+    tl = training_loop(batch_stream, experiment, device, [
         log_features,
         log_fake_features,
         log_loss,
     ])
+
+    def fake_audio():
+        return experiment.features_to_audio(fake[:1])
+
+    def real_audio():
+        return experiment.features_to_audio(real_spec.T[None, ...])
 
     # This is copied verbatim from evaluate.py and should be factored into
     # a common location

@@ -71,6 +71,14 @@ help audio quality.  My hunch is that using mel-spaced oscillators for the
 generator greatly limits its ability to produce accurate frequencies in higher
 ranges
 
+# TODAY
+- what's the deal with mis-aligned features (again)?
+- basic feature generator experiment working using neural vocoder
+- basic feature generator experiment working using LWS vocoder
+- autoregressive feature generator experiment
+- autoregressive feature generator experiment using alternate audio repr
+
+
 # TODO
 - *try filterbank experiment with additional filtered noise channels*
 - *try mel scale discriminator and linear-spaced generator*

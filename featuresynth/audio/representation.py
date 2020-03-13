@@ -275,7 +275,7 @@ class BasePhaseRecovery(BaseAudioRepresentation):
         coeffs = cls.proc.stft(samples)
         mag = np.abs(coeffs)
         coeffs = np.matmul(mag, cls.basis.T)
-        coeffs = np.log(coeffs)
+        coeffs = np.log(coeffs + 1e-12)
         return cls(coeffs, samplerate)
 
 

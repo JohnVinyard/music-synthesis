@@ -147,18 +147,26 @@ class Experiment(BaseGanExperiment):
         self.total_samples = total_samples
         self.feature_channels = feature_channels
 
-    def _name(self):
-        name = self.__class__.__name__.lower()
+    @classmethod
+    def _name(cls):
+        name = cls.__name__.lower()
         name = name.replace('experiment', '')
         return name
 
-    def _gen_name(self, prefix=''):
-        name = self._name()
+    @classmethod
+    def _gen_name(cls, prefix=''):
+        name = cls._name()
         return f'{prefix}{name}_gen.dat'
 
-    def _disc_name(self, prefix=''):
-        name = self._name()
+    @classmethod
+    def _disc_name(cls, prefix=''):
+        name = cls._name()
         return f'{prefix}{name}_disc.dat'
+
+    @classmethod
+    def load_generator_weights(cls, generator, prefix=''):
+        generator.load_state_dict(torch.load(cls._gen_name(prefix)))
+        return generator
 
     def checkpoint(self, prefix=''):
         torch.save(self.generator.state_dict(), self._gen_name(prefix))

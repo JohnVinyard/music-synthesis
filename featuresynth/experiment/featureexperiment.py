@@ -1,16 +1,15 @@
 from ..audio import RawAudio
 from ..train import GeneratorTrainer, DiscriminatorTrainer
 from ..experiment import FilterBankExperiment
-from ..generator import FilterBankGenerator
 from ..featuregenerator import LowResGenerator
 from ..featurediscriminator import LowResDiscriminator
 from .init import weights_init
 from ..data import batch_stream
-from ..feature import normalized_and_augmented_audio, make_spectrogram_func
+from ..loss import least_squares_generator_loss, least_squares_disc_loss
 from torch.optim import Adam
 import torch
 from itertools import cycle
-import zounds
+import numpy as np
 
 class BaseVocoder(object):
     def __call__(self, features):
@@ -23,11 +22,8 @@ class PhaseRecoveryVocoder(BaseVocoder):
     pass
 
 class NeuralVocoder(object):
-    def __init__(self, network, weights_path):
-        if not weights_path:
-            raise ValueError('You must supply a path for pre-trained weights')
+    def __init__(self, network):
         self.network = network
-        self.network.load_state_dict(torch.load(weights_path))
 
     def __call__(self, features):
         with torch.no_grad():
@@ -59,6 +55,7 @@ class BaseFeatureExperiment(object):
             disc_init,
             disc_loss,
             feature_funcs,
+            feature_spec,
             audio_repr_class,
             learning_rate,
             condition_shape,
@@ -66,6 +63,7 @@ class BaseFeatureExperiment(object):
 
         super().__init__()
 
+        self.feature_spec = feature_spec
         self.samplerate = samplerate
         self.condition_shape = condition_shape
         self.disc_loss = disc_loss
@@ -111,8 +109,8 @@ class BaseFeatureExperiment(object):
 
 
         self.training_steps = cycle([
-            self.d_trainer,
-            self.g_trainer
+            self.d_trainer.train,
+            self.g_trainer.train
         ])
 
     def to(self, device):
@@ -159,20 +157,19 @@ class BaseFeatureExperiment(object):
         Preprocess a batch of real spectrograms
         Also, produce a conditioning vector
         """
-        batch_size = len(batch)
-        conditioning = torch.normal(
-            0, 1, (batch_size,) + self.condition_shape).to(self.device)
-        return batch, conditioning
+        # unpack single-item tuple
+        spec, = batch
+        batch_size = len(spec)
+        conditioning = np.random.normal(
+            0, 1, (batch_size,) + self.condition_shape)
+        return spec, conditioning
 
     def features_to_audio(self, features):
         # TODO: Use the audio representation class here, instead of naively
         # converting directly to raw audio
-        features = torch.from_numpy(features).to(self.device)
+        features = torch.from_numpy(features)
         audio = self.vocoder(features)
-        output = [
-            zounds.AudioSamples(a, self.samplerate)
-            for a in audio.data.cpu().numpy().squeeze()]
-        return output
+        return self.audio_repr_class.from_audio(audio, self.samplerate)
 
 
 
@@ -183,30 +180,7 @@ class TestFeatureExperiment(BaseFeatureExperiment):
 
 class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
 
-
-
     def __init__(self):
-        # samplerate = zounds.SR22050()
-        # # TODO: Get these values from the FilterBankExperiment
-        # generator_size = 32
-        # generator_samples = 8192
-        # n_mels = 128
-        # n_fft = 1024
-        # hop = 256
-        # # END TODO: get these values from the FilterBankExperiment
-        #
-        # # TODO: I actually need to use the conditional filter bank experiment
-        # # here
-        # generator = FilterBankGenerator(
-        #     FilterBankExperiment.make_filter_bank(samplerate),
-        #     generator_size,
-        #     generator_samples,
-        #     n_mels)
-        #
-        # spec_func = make_spectrogram_func(
-        #     normalized_and_augmented_audio, samplerate, n_fft, hop, n_mels)
-
-        # Parameters for this experiment
         noise_dim = 128
 
 
@@ -215,27 +189,35 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
         # second phase, should implement this basic class-level interface
         vocoder_exp = FilterBankExperiment
         generator = vocoder_exp.make_generator()
+        generator = vocoder_exp.load_generator_weights(generator)
         spec_func = vocoder_exp.make_spec_func()
         samplerate = vocoder_exp.SAMPLERATE
 
         disc_channels = 256
 
-        # TODO: create generator and discriminator loss functions and consider
-        # how they'll function in the current trainers
+        def gen_loss(r_features, f_features, r_score, f_score, gan_loss):
+            return least_squares_generator_loss(f_score)
+
+        def disc_loss(r_score, f_score, gan_loss):
+            return least_squares_disc_loss(r_score, f_score)
+
         super().__init__(
             vocoder=NeuralVocoder(generator),
             feature_generator=LowResGenerator(
                 out_channels=vocoder_exp.N_MELS,
                 noise_dim=noise_dim),
             generator_init=weights_init,
-            generator_loss=None,
+            generator_loss=gen_loss,
             feature_disc=LowResDiscriminator(
                 feature_channels=vocoder_exp.N_MELS,
                 channels=disc_channels),
             disc_init=weights_init,
-            disc_loss=None,
+            disc_loss=disc_loss,
             feature_funcs={
                 'spectrogram': (spec_func, (samplerate,))
+            },
+            feature_spec={
+                'spectrogram': (512, vocoder_exp.N_MELS)
             },
             audio_repr_class=RawAudio,
             learning_rate=1e-4,

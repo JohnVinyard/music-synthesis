@@ -50,6 +50,9 @@ if __name__ == '__main__':
     experiment = getattr(featuresynth.experiment, args.experiment)()
     print('Running:', experiment.__class__)
     print('Batch Size:', args.batch_size)
+    print('Feature Spec:', experiment.feature_spec)
+    print('Inference Feature Spec:', experiment.inference_spec)
+
 
     torch.backends.cudnn.benchmark = True
 

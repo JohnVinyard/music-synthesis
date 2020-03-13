@@ -171,7 +171,6 @@ class FilterBankDiscriminator(nn.Module):
             # https://github.com/yanggeng1995/GAN-TTS/blob/master/models/discriminator.py#L67
             feat = F.upsample(features, size=x.shape[-1])
             x = torch.cat([x, feat], dim=1)
-            print(x.shape)
 
         features = []
         judgements = []

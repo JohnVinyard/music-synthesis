@@ -11,4 +11,4 @@ from .filterbank import \
 from .report import Report
 
 
-from .featureexperiment import TestFeatureExperiment
+from .featureexperiment import TwoDimGeneratorFeatureExperiment

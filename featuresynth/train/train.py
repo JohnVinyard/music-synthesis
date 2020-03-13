@@ -79,7 +79,6 @@ def training_loop(batch_stream, experiment, device, loggers):
 
     for i, batch in enumerate(batch_stream):
         preprocessed = experiment.preprocess_batch(batch)
-
         tensors = []
         for x in preprocessed:
             try:

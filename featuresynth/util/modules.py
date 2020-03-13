@@ -321,7 +321,6 @@ class LowResSpectrogramDiscriminator(nn.Module):
                 factor = features.shape[-1] // low_res.shape[-1]
                 feat = F.avg_pool1d(features, factor)
             low_res = torch.cat([low_res, feat], dim=1)
-            print(low_res.shape)
 
         features = []
         for layer in self.stack:

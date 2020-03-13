@@ -196,37 +196,12 @@ class LowResDiscriminator(nn.Module):
             residual=True)
         self.judge = nn.Conv1d(channels, 1, 1, 1, 0, bias=False)
 
-        # self.stack = nn.Sequential(
-        #     nn.Conv2d(1, 64, (5, 5), (2, 2), (2, 2), bias=False),
-        #     nn.Conv2d(64, 128, (5, 5), (2, 2), (2, 2), bias=False),
-        #     nn.Conv2d(128, 128, (5, 5), (2, 2), (2, 2), bias=False),
-        #     nn.Conv2d(128, 128, (5, 5), (2, 2), (2, 2), bias=False),
-        #     nn.Conv2d(128, 256, (5, 5), (2, 2), (2, 2), bias=False),
-        #     nn.Conv2d(256, 512, (3, 3), (2, 2), (1, 1), bias=False),
-        #     nn.Conv2d(512, 1024, (3, 3), (2, 2), (1, 1), bias=False),
-        #     nn.Conv2d(1024, 2048, (2, 2), (1, 1), (0, 0), bias=False),
-        # )
-        #
-        # self.judge = nn.Linear(2048, 1, bias=False)
 
-    # def initialize_weights(self):
-    #     for name, weight in self.named_parameters():
-    #         if weight.data.dim() > 2:
-    #             # weight.data.normal_(0, 0.02)
-    #             if 'judge' in name:
-    #                 xavier_normal_(weight.data, 1)
-    #             else:
-    #                 xavier_normal_(
-    #                     weight.data, calculate_gain('leaky_relu', 0.2))
-    #     return self
 
-    def forward(self, x):
-
+    def forward(self, x, conditioning):
+        # NOTE: Conditioning is meaningless here, as the generator is
+        # unconditioned
         x = self.stack(x)
-
-        # x = x.view(x.shape[0], 1, self.feature_channels, self.frames)
-        # for layer in self.stack:
-        #     x = F.leaky_relu(layer(x), 0.2)
-        # x = x.view(x.shape[0], -1)
         x = self.judge(x)
-        return x
+        features = []
+        return features, x

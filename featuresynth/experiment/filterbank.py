@@ -6,7 +6,8 @@ from .experiment import Experiment
 from ..loss import mel_gan_gen_loss, mel_gan_disc_loss
 import zounds
 from .init import weights_init
-from ..feature import normalized_and_augmented_audio, make_spectrogram_func
+from ..feature import \
+    normalized_and_augmented_audio, make_spectrogram_func, audio, spectrogram
 from ..loss import least_squares_disc_loss, least_squares_generator_loss
 
 
@@ -100,7 +101,7 @@ class FilterBankExperiment(Experiment):
         #     self.HOP,
         #     self.N_MELS)
 
-        spec_func = self.make_spec_func()
+        # spec_func = self.make_spec_func()
 
         super().__init__(
             # generator=FilterBankGenerator(
@@ -119,8 +120,8 @@ class FilterBankExperiment(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (self.SAMPLERATE,)),
-                'spectrogram': (spec_func, (self.SAMPLERATE,))
+                'audio': (audio, (self.SAMPLERATE,)),
+                'spectrogram': (spectrogram, (self.SAMPLERATE,))
             },
             total_samples=self.TOTAL_SAMPLES,
             feature_channels=self.N_MELS,

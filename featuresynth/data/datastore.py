@@ -23,6 +23,7 @@ def batch_stream(
         feature_spec,
         anchor_feature,
         feature_funcs):
+
     # build ratio spec
     anchor_spec = feature_spec[anchor_feature]
     anchor_size, anchor_channels = anchor_spec
@@ -36,6 +37,7 @@ def batch_stream(
         return x.T.reshape((-1, channels, size))
 
     all_files = list(iter_files(path, pattern))
+
     while True:
         batch = defaultdict(list)
         for _ in range(batch_size):
@@ -47,6 +49,7 @@ def batch_stream(
             anchor, start, end = random_slice(anchor, anchor_size)
             anchor = conform(anchor, anchor_spec)
             batch[anchor_feature].append(anchor)
+
 
             # get all other features aligned with this one
             for feat, spec in feature_spec.items():

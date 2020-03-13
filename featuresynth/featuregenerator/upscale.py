@@ -207,65 +207,31 @@ class LowResGenerator(nn.Module):
         self.noise_dim = noise_dim
         self.out_channels = out_channels
 
-        # self.to_time_series = ToTimeSeries(noise_dim, channels, initial_dim)
-        # self.initial = DilatedStack(
-        #     channels,
-        #     channels,
-        #     3,
-        #     [1, 3, 1],
-        #     groups=[4, 4, 4],
-        #     activation=lambda x: F.leaky_relu(x, 0.2),
-        #     residual=True)
-        # self.final = DilatedStack(
-        #     channels,
-        #     channels,
-        #     3,
-        #     [27, 9, 3, 1, 1],
-        #     groups=[out_channels] * 5,
-        #     activation=lambda x: F.leaky_relu(x, 0.2),
-        #     residual=True)
-        # self.to_frames = nn.Conv1d(
-        #     channels, out_channels, 7, 1, 3, groups=out_channels, bias=False)
-
         self.initial = nn.Linear(noise_dim, 4 * 4 * 1024, bias=False)
         self.stack = nn.Sequential(
             nn.ConvTranspose2d(1024, 512, (4, 4), (2, 2), (1, 1), bias=False),
+            # (8, 8)
             nn.ConvTranspose2d(512, 256, (4, 4), (2, 2), (1, 1), bias=False),
+            # (16, 16)
             nn.ConvTranspose2d(256, 128, (4, 4), (2, 2), (1, 1), bias=False),
+            # (32, 32)
             nn.ConvTranspose2d(128, 128, (4, 4), (2, 2), (1, 1), bias=False),
+            # (64, 64)
             nn.ConvTranspose2d(128, 64, (4, 4), (2, 2), (1, 1), bias=False),
-            nn.ConvTranspose2d(64, 1, (4, 4), (2, 2), (1, 1), bias=False),
+            # (128, 128)
+            nn.ConvTranspose2d(64, 32, (3, 4), (1, 2), (1, 1), bias=False),
+            # (128, 256)
+            nn.ConvTranspose2d(32, 1, (3, 4), (1, 2), (1, 1), bias=False),
+            # (128, 512)
         )
-        # self.stack = make_stack(
-        #     4,
-        #     256,
-        #     lambda i: nn.ConvTranspose2d(channels, channels, (4, 4), (2, 2), (1, 1), bias=False))
-        # self.to_frames = nn.Conv1d(channels, 1, (3, 3), (1, 1), (1, 1), bias=False)
-
-    # def initialize_weights(self):
-    #     for name, weight in self.named_parameters():
-    #         if weight.data.dim() > 2:
-    #             if 'to_frames' in name:
-    #                 xavier_normal_(weight.data, 1)
-    #             else:
-    #                 xavier_normal_(weight.data,
-    #                                calculate_gain('leaky_relu', 0.2))
-    #     return self
 
     def forward(self, x):
-        # x = self.to_time_series(x)
-        # x = self.initial(x)
-        # x = F.upsample(x, size=self.frames)
-        # x = self.final(x)
-        # x = normalize(self.to_frames(x) ** 2)
-
+        x = x.view(-1, self.noise_dim)
         x = F.leaky_relu(self.initial(x), 0.2)
         x = x.view(x.shape[0], -1, 4, 4)
         for i, layer in enumerate(self.stack):
             if i == len(self.stack) - 1:
-                # TODO: Probably lose the normalization and the squared
-                # activation
-                x = normalize(layer(x) ** 2)
+                x = layer(x)
             else:
                 x = F.leaky_relu(layer(x), 0.2)
 
