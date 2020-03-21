@@ -50,15 +50,15 @@ class MDCTDiscriminator(nn.Module):
         j = self.judge(x)
         return features, j
 
-    def forward(self, x):
+    def forward(self, x, feat):
         features = []
         judgements = []
 
-        f, j = self.med_res(x)
+        f, j = self.med_res(x, feat)
         features.append(f)
         judgements.append(j)
 
-        f, j = self.low_res(x)
+        f, j = self.low_res(x, feat)
         features.append(f)
         judgements.append(j)
 

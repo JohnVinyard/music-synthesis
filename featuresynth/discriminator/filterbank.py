@@ -87,7 +87,7 @@ class LargeReceptiveFieldFilterBankDiscriminator(nn.Module):
         x = self.judge(x)
         return features, x
 
-    def forward(self, x):
+    def forward(self, x, feat):
         batch = x.shape[0]
 
         x = self.filter_bank.convolve(x)
@@ -112,8 +112,15 @@ class LargeReceptiveFieldFilterBankDiscriminator(nn.Module):
 
 
 class FilterBankDiscriminator(nn.Module):
-    def __init__(self, filter_bank, input_size, conditioning_channels=0):
+    def __init__(
+            self,
+            filter_bank,
+            input_size,
+            conditioning_channels=0,
+            log_scaling=False):
+
         super().__init__()
+        self.log_scaling = log_scaling
         self.conditioning_channels = conditioning_channels
         self.input_size = input_size
         self._filter_bank = [filter_bank]
@@ -136,14 +143,18 @@ class FilterBankDiscriminator(nn.Module):
             time_steps=128,
             n_judgements=16,
             kernel_size=7,
-            max_channels=1024)
+            max_channels=1024,
+            conditioning_channels=conditioning_channels,
+            log_scaling=log_scaling)
 
         self.low_res = LowResSpectrogramDiscriminator(
             freq_bins=32,
             time_steps=32,
             n_judgements=4,
             kernel_size=7,
-            max_channels=512)
+            max_channels=512,
+            conditioning_channels=conditioning_channels,
+            log_scaling=log_scaling)
 
     @property
     def filter_bank(self):
@@ -153,7 +164,16 @@ class FilterBankDiscriminator(nn.Module):
         self.filter_bank.to(device)
         return super().to(device)
 
-    def full_resolution(self, x):
+    def full_resolution(self, x, feat):
+
+        if self.conditioning_channels > 0:
+            # TODO: Consider the alternative (and less memory-intensive) option
+            # adding together unconditioned and computed features, as seen here:
+            # https://arxiv.org/pdf/1909.11646.pdf#page=5
+            # https://github.com/yanggeng1995/GAN-TTS/blob/master/models/discriminator.py#L67
+            feat = F.upsample(feat, size=x.shape[-1])
+            x = torch.cat([x, feat], dim=1)
+
         features = []
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
@@ -161,29 +181,21 @@ class FilterBankDiscriminator(nn.Module):
         x = self.judge(x)
         return features, x
 
-    def forward(self, x, features):
+    def forward(self, x, feat):
         x = self.filter_bank.convolve(x)
-
-        if self.conditioning_channels > 0:
-            # TODO: Consider the alternative (and less memory-intensive) option
-            # adding together unconditioned and computed features, as seen here:
-            # https://arxiv.org/pdf/1909.11646.pdf#page=5
-            # https://github.com/yanggeng1995/GAN-TTS/blob/master/models/discriminator.py#L67
-            feat = F.upsample(features, size=x.shape[-1])
-            x = torch.cat([x, feat], dim=1)
 
         features = []
         judgements = []
 
-        f, j = self.full_resolution(x)
+        f, j = self.full_resolution(x, feat)
         features.append(f)
         judgements.append(j)
 
-        f, j = self.medium_res(x, features)
+        f, j = self.medium_res(x, feat)
         features.append(f)
         judgements.append(j)
 
-        f, j = self.low_res(x, features)
+        f, j = self.low_res(x, feat)
         features.append(f)
         judgements.append(j)
 

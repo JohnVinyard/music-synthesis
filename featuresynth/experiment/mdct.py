@@ -8,7 +8,7 @@ from ..loss import \
     mel_gan_disc_loss, mel_gan_gen_loss, least_squares_generator_loss, \
     least_squares_disc_loss
 from .init import weights_init
-from ..feature import make_spectrogram_func, normalized_and_augmented_audio
+from ..feature import make_spectrogram_func, normalized_and_augmented_audio, audio, spectrogram
 
 from .experiment import Experiment
 
@@ -63,8 +63,8 @@ class GroupedMDCTExperiment(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (samplerate,)),
-                'spectrogram': (spec_func, (samplerate,))
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
             },
             total_samples=total_samples,
             feature_channels=feature_channels,

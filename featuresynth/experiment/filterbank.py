@@ -95,8 +95,8 @@ class ConditionalFilterBankExperiment(Experiment):
         filter_bank = zounds.learn.FilterBank(
             sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
 
-        spec_func = make_spectrogram_func(
-            normalized_and_augmented_audio, sr, n_fft, hop, n_mels)
+        # spec_func = make_spectrogram_func(
+        #     normalized_and_augmented_audio, sr, n_fft, hop, n_mels)
 
         super().__init__(
             generator=FilterBankGenerator(
@@ -115,8 +115,8 @@ class ConditionalFilterBankExperiment(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (sr,)),
-                'spectrogram': (spec_func, (sr,))
+                'audio': (audio, (sr,)),
+                'spectrogram': (spectrogram, (sr,))
             },
             total_samples=total_samples,
             feature_channels=n_mels,
@@ -124,7 +124,7 @@ class ConditionalFilterBankExperiment(Experiment):
             inference_sequence_factor=4)
 
 
-class   AlternateFilterBankExperiment(Experiment):
+class AlternateFilterBankExperiment(Experiment):
     """
     This is very similar to the general FilterBank, with a several differences:
         - The architecure models the original MelGAN experiment
@@ -169,7 +169,7 @@ class   AlternateFilterBankExperiment(Experiment):
             normalize_filters=True,
             a_weighting=False)
 
-        disc_scale = zounds.MelScale(freq_band, n_filters)
+        disc_scale = zounds.LinearScale(freq_band, n_filters)
         disc_filter_bank = zounds.learn.FilterBank(
             sr,
             filter_taps,
@@ -201,8 +201,8 @@ class   AlternateFilterBankExperiment(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (sr,)),
-                'spectrogram': (spec_func, (sr,))
+                'audio': (audio, (sr,)),
+                'spectrogram': (spectrogram, (sr,))
             },
             total_samples=total_samples,
             feature_channels=n_mels,

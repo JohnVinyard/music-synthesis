@@ -71,39 +71,21 @@ help audio quality.  My hunch is that using mel-spaced oscillators for the
 generator greatly limits its ability to produce accurate frequencies in higher
 ranges
 
+# Questions
+- Why do GAN pairs seem to perform so much better on speech than music?  Is it
+  the amount of variance in the audio.  Is it a question of consistent loudness
+  or the presence of long silences?
+- What can be learned from style-transfer-like optimization synth experiment?
+- How far can MDCT or low-res mel spectrograms take me for autoregressive experiments? 
+
 # TODAY
-- normal feature generator experiment using alternate audio repr
 - autoregressive feature generator experiment
 - autoregressive feature generator experiment using alternate audio repr
 
 
 # TODO
-- *try filterbank experiment with additional filtered noise channels*
-- *try mel scale discriminator and linear-spaced generator*
-- *try filterbank discriminator without multiscale*
-- *try weight norm with FilterBank experiment*
-- *try dilated convolutions in filterbank generator*
-
-
-- try conditional discriminator
-
-- try filterbank with log-scaled magnitudes, or a-weighting
-- try filterbank with only small-scale
-
-
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
-- try filterbank experiment with original MelGAN discriminator
-- try weight norm with multiscale experiment
-
-
 - organize spectrogram differently, with octaves grouped together
     - `(batch, channels, octave, f0, time)`
 - try DDSP with FM synthesis or banks of octave filters
-
-# Tools
-- experiments configured in JSON file
-- experiments that run some basic tests?
-
-# Once I've Settled on the Best Model
-- complete AWS deploy script

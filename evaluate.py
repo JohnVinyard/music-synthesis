@@ -10,7 +10,7 @@ from featuresynth.train import training_loop
 
 import argparse
 
-path = '/hdd/musicnet/train_data'
+path = '/hdd/LJSpeech-1.1'
 pattern = '*.wav'
 
 if __name__ == '__main__':

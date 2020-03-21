@@ -20,7 +20,7 @@ class MDCTGenerator(nn.Module):
             residual=True)
 
         self.to_frames = nn.Conv1d(channels, 256, 7, 1, 3, groups=256)
-        self.to_frames_gate = nn.Conv1d(channels, 256, 7, 1, 3, groups=256)
+        # self.to_frames_gate = nn.Conv1d(channels, 256, 7, 1, 3, groups=256)
 
     # def initialize_weights(self):
     #     for name, weight in self.named_parameters():
@@ -35,7 +35,8 @@ class MDCTGenerator(nn.Module):
     def forward(self, x):
         batch, channels, time = x.shape
         x = self.main(x)
-        x = F.tanh(self.to_frames(x)) * F.tanh(self.to_frames_gate(x))
+        # x = F.tanh(self.to_frames(x)) * F.tanh(self.to_frames_gate(x))
+        x = self.to_frames(x)
         x = x.view(batch, -1, time)
         return x
 
@@ -52,7 +53,7 @@ class GroupedMDCTGenerator(nn.Module):
         )
 
         self.to_frames = nn.Conv1d(4096, 256, 7, 1, 3, groups=256)
-        self.to_frames_gate = nn.Conv1d(4096, 256, 7, 1, 3, groups=256)
+        # self.to_frames_gate = nn.Conv1d(4096, 256, 7, 1, 3, groups=256)
 
     # def initialize_weights(self):
     #     for name, weight in self.named_parameters():
@@ -68,7 +69,7 @@ class GroupedMDCTGenerator(nn.Module):
         batch, channels, time = x.shape
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
-        x = F.tanh(self.to_frames(x)) * F.tanh(self.to_frames_gate(x))
+        x = self.to_frames(x)
         x = x.view(batch, -1, time)
         return x
 

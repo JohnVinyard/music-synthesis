@@ -6,7 +6,7 @@ from ..loss import \
     mel_gan_gen_loss, mel_gan_disc_loss, least_squares_generator_loss, \
     least_squares_disc_loss
 import zounds
-from ..feature import normalized_and_augmented_audio, make_spectrogram_func
+from ..feature import normalized_and_augmented_audio, make_spectrogram_func, audio, spectrogram
 from .init import weights_init
 
 """
@@ -51,8 +51,8 @@ class MultiScaleMultiResGroupedFeaturesExperiment(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (samplerate,)),
-                'spectrogram': (spec_func, (samplerate,))
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
             },
             total_samples=total_samples,
             feature_channels=n_mels,
@@ -98,8 +98,8 @@ class MultiScaleNoDeRecompose(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (samplerate,)),
-                'spectrogram': (spec_func, (samplerate,))
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
             },
             total_samples=total_samples,
             feature_channels=n_mels,

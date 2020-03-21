@@ -8,7 +8,7 @@ from ..audio import RawAudio
 from .experiment import Experiment
 from ..loss import mel_gan_disc_loss, hinge_generator_loss
 
-from ..feature import normalized_and_augmented_audio, make_spectrogram_func
+from ..feature import normalized_and_augmented_audio, make_spectrogram_func, audio, spectrogram
 import zounds
 
 
@@ -151,7 +151,7 @@ class Discriminator(nn.Module):
         self.downsample = nn.AvgPool1d(4, stride=2, padding=1,
                                        count_include_pad=False)
 
-    def forward(self, x):
+    def forward(self, x, feat):
         # results = []
         features = []
         judgements = []
@@ -205,15 +205,15 @@ def mel_gan_gen_loss(
 
 class RealMelGanExperiment(Experiment):
     def __init__(self):
-        n_mels = 80
+        n_mels = 128
         size = 32
         samplerate = zounds.SR22050()
         n_fft = 1024
         hop = 256
         total_samples = 8192
 
-        spec_func = make_spectrogram_func(
-            normalized_and_augmented_audio, samplerate, n_fft, hop, n_mels)
+        # spec_func = make_spectrogram_func(
+        #     normalized_and_augmented_audio, samplerate, n_fft, hop, n_mels)
 
         super().__init__(
             Generator(n_mels, size, n_residual_layers=3),
@@ -226,8 +226,8 @@ class RealMelGanExperiment(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (samplerate,)),
-                'spectrogram': (spec_func, (samplerate,))
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
             },
             total_samples=total_samples,
             feature_channels=n_mels,

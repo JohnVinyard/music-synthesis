@@ -146,7 +146,7 @@ class MultiScaleMultiResDiscriminator(nn.Module):
             low_res_input_size, low_res_input_size // 8)
 
 
-    def forward(self, x):
+    def forward(self, x, feat):
         features = []
         judgements = []
 

@@ -40,6 +40,7 @@ def batch_stream(
 
     while True:
         batch = defaultdict(list)
+
         for _ in range(batch_size):
             file_path = choice(all_files)
             func, args = feature_funcs[anchor_feature]
