@@ -6,8 +6,7 @@ from .experiment import Experiment
 from ..loss import mel_gan_gen_loss, mel_gan_disc_loss
 import zounds
 from .init import weights_init
-from ..feature import \
-    normalized_and_augmented_audio, make_spectrogram_func, audio, spectrogram
+from ..feature import audio, spectrogram
 from ..loss import least_squares_disc_loss, least_squares_generator_loss
 
 
@@ -95,8 +94,6 @@ class ConditionalFilterBankExperiment(Experiment):
         filter_bank = zounds.learn.FilterBank(
             sr, 511, scale, 0.9, normalize_filters=True, a_weighting=False)
 
-        # spec_func = make_spectrogram_func(
-        #     normalized_and_augmented_audio, sr, n_fft, hop, n_mels)
 
         super().__init__(
             generator=FilterBankGenerator(
@@ -178,8 +175,6 @@ class AlternateFilterBankExperiment(Experiment):
             normalize_filters=True,
             a_weighting=False)
 
-        spec_func = make_spectrogram_func(
-            normalized_and_augmented_audio, sr, n_fft, hop, n_mels)
 
         super().__init__(
             generator=ResidualStackFilterBankGenerator(

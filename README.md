@@ -72,6 +72,7 @@ generator greatly limits its ability to produce accurate frequencies in higher
 ranges
 
 # Questions
+- Why do I suffer performance issues when training on musicnet (after all features have been cached?)
 - Why do GAN pairs seem to perform so much better on speech than music?  Is it
   the amount of variance in the audio.  Is it a question of consistent loudness
   or the presence of long silences?
@@ -84,6 +85,10 @@ ranges
 
 
 # TODO
+- DDSP with two completely separate branches for loudness and pitch
+- Conditional FilterBank
+- fractal with normalized top-level loudness
+- ComplexSTFT
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
 - organize spectrogram differently, with octaves grouped together

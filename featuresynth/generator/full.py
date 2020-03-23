@@ -81,7 +81,15 @@ class DDSPGenerator(nn.Module):
             nn.Conv1d(c, c, 3, 1, 1),
         )
         self.n_osc = n_osc
-        self.frequency = nn.Conv1d(c, n_osc * 2, 3, 1, 1)
+        self.frequency = nn.Conv1d(c, n_osc, 3, 1, 1)
+
+        self.main2 =  nn.Sequential(
+            nn.Conv1d(in_channels, c, 3, 1, 1),
+            nn.Conv1d(c, c, 3, 1, 1),
+            nn.Conv1d(c, c, 3, 1, 1),
+            nn.Conv1d(c, c, 3, 1, 1),
+        )
+        self.loudness = nn.Conv1d(c, n_osc, 3, 1, 1)
 
 
         centers = np.array([b.center_frequency for b in scale])
@@ -101,7 +109,7 @@ class DDSPGenerator(nn.Module):
             target_size=1024,
             scale_factor=2,
             layer_func=lambda i, curr_size, out_size, first, last: UpSample(
-                c,
+                in_channels if first else c,
                 c,
                 7,
                 2,
@@ -123,20 +131,39 @@ class DDSPGenerator(nn.Module):
         self.starts = torch.from_numpy(starts).to(device).float()
         self.diffs = torch.from_numpy(diffs).to(device).float()
 
+    def _freq(self, x):
+        for layer in self.main:
+            x = F.leaky_relu(layer(x), 0.2)
+        osc = self.frequency(x)
+        f = F.sigmoid(osc)
+        f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
+        return f
+
+    def _loud(self, x):
+        for layer in self.main2:
+            x = F.leaky_relu(layer(x), 0.2)
+        x = self.loudness(x) ** 2
+        return x
+
+
 
     def forward(self, x):
         input_size = x.shape[-1]
 
         x = x.view(x.shape[0], self.in_channels, -1)
-        for layer in self.main:
-            x = F.leaky_relu(layer(x), 0.2)
+        # for layer in self.main:
+        #     x = F.leaky_relu(layer(x), 0.2)
+        #
+        #
+        # osc = self.frequency(x)
+        # # l = osc[:, :self.n_osc, :] ** 2
+        #
+        # f = F.sigmoid(osc)
+        # f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
+        #
 
-
-        osc = self.frequency(x)
-        l = osc[:, :self.n_osc, :] ** 2
-
-        f = F.sigmoid(osc[:, self.n_osc:, :])
-        f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
+        l = self._loud(x)
+        f = self._freq(x)
 
         # f = F.tanh(osc[:, self.n_osc:, :]) * 0.5
         # f = self.centers[None, :, None] + (f * self.erbs[None, :, None])

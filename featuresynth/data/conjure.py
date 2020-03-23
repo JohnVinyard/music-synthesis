@@ -134,3 +134,4 @@ class LmdbCollection(object):
         if value is None:
             raise KeyError(key)
         return value, txn
+

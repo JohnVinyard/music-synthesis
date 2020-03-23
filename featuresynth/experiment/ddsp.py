@@ -2,13 +2,12 @@ from ..audio import RawAudio
 from .filterbank import FilterBankDiscriminator
 from .realmelgan import Discriminator
 from ..generator.full import DDSPGenerator
-from ..util.modules import STFTDiscriminator
 from .experiment import Experiment
 from ..loss import \
     mel_gan_disc_loss, mel_gan_gen_loss, least_squares_disc_loss, \
     least_squares_generator_loss
 from .init import weights_init
-from ..feature import normalized_and_augmented_audio, make_spectrogram_func
+from ..feature import spectrogram, audio
 import zounds
 
 
@@ -44,9 +43,6 @@ class OneDimDDSPExperiment(Experiment):
         scale = zounds.MelScale(
             zounds.FrequencyBand(20, samplerate.nyquist - 20), n_osc)
 
-        spec_func = make_spectrogram_func(
-            normalized_and_augmented_audio, samplerate, n_fft, hop, n_mels)
-
         super().__init__(
             generator=DDSPGenerator(
                 n_osc=n_osc,
@@ -70,8 +66,8 @@ class OneDimDDSPExperiment(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (samplerate,)),
-                'spectrogram': (spec_func, (samplerate,))
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
             },
             total_samples=total_samples,
             feature_channels=n_mels,
@@ -98,8 +94,6 @@ class DDSPWithFilterBankDiscriminator(Experiment):
             samplerate, 511, scale, 0.9, normalize_filters=True,
             a_weighting=False)
 
-        spec_func = make_spectrogram_func(
-            normalized_and_augmented_audio, samplerate, n_fft, hop, n_mels)
 
         super().__init__(
             generator=DDSPGenerator(
@@ -121,8 +115,8 @@ class DDSPWithFilterBankDiscriminator(Experiment):
             g_init=weights_init,
             d_init=weights_init,
             feature_funcs={
-                'audio': (normalized_and_augmented_audio, (samplerate,)),
-                'spectrogram': (spec_func, (samplerate,))
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
             },
             total_samples=total_samples,
             feature_channels=n_mels,

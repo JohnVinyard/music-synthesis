@@ -8,7 +8,7 @@ from ..audio import RawAudio
 from .experiment import Experiment
 from ..loss import mel_gan_disc_loss, hinge_generator_loss
 
-from ..feature import normalized_and_augmented_audio, make_spectrogram_func, audio, spectrogram
+from ..feature import audio, spectrogram
 import zounds
 
 
@@ -212,8 +212,6 @@ class RealMelGanExperiment(Experiment):
         hop = 256
         total_samples = 8192
 
-        # spec_func = make_spectrogram_func(
-        #     normalized_and_augmented_audio, samplerate, n_fft, hop, n_mels)
 
         super().__init__(
             Generator(n_mels, size, n_residual_layers=3),

@@ -10,8 +10,10 @@ from featuresynth.train import training_loop
 
 import argparse
 
-path = '/hdd/LJSpeech-1.1'
+path = '/hdd/musicnet/train_data'
 pattern = '*.wav'
+
+# pstats.Stats('profile.txt').strip_dirs().sort_stats('cumtime').print_stats(50)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -1,5 +1,5 @@
 import numpy as np
-from .filesystem import iter_files
+from .filesystem import iter_audio_chunks
 from ..util import pad
 from random import choice
 from collections import defaultdict
@@ -36,37 +36,42 @@ def batch_stream(
         size, channels = spec
         return x.T.reshape((-1, channels, size))
 
-    all_files = list(iter_files(path, pattern))
+    all_file_chunks = list(iter_audio_chunks(path, pattern))
 
     while True:
         batch = defaultdict(list)
+        batch_count = 0
 
-        for _ in range(batch_size):
-            file_path = choice(all_files)
-            func, args = feature_funcs[anchor_feature]
+        while batch_count < batch_size:
+            try:
+                file_chunk = choice(all_file_chunks)
+                func, args = feature_funcs[anchor_feature]
 
-            # this will return a numpy wrapper with an open transaction
-            anchor = func(file_path, *args)
-            anchor, start, end = random_slice(anchor, anchor_size)
-            anchor = conform(anchor, anchor_spec)
-            batch[anchor_feature].append(anchor)
+                # this will return a numpy wrapper with an open transaction
+                anchor = func(file_chunk, *args)
+                anchor, start, end = random_slice(anchor, anchor_size)
+                anchor = conform(anchor, anchor_spec)
+                batch[anchor_feature].append(anchor)
 
 
-            # get all other features aligned with this one
-            for feat, spec in feature_spec.items():
+                # get all other features aligned with this one
+                for feat, spec in feature_spec.items():
 
-                if feat == anchor_feature:
-                    continue
+                    if feat == anchor_feature:
+                        continue
 
-                ratio = ratio_spec[feat][2]
-                ns = start * ratio
-                ne = end * ratio
-                expected_length = ne - ns
-                func, args = feature_funcs[feat]
-                feat_data = func(file_path, *args)[ns: ne]
-                padded = pad(feat_data, expected_length)
-                padded = conform(padded, spec)
-                batch[feat].append(padded)
+                    ratio = ratio_spec[feat][2]
+                    ns = start * ratio
+                    ne = end * ratio
+                    expected_length = ne - ns
+                    func, args = feature_funcs[feat]
+                    feat_data = func(file_chunk, *args)[ns: ne]
+                    padded = pad(feat_data, expected_length)
+                    padded = conform(padded, spec)
+                    batch[feat].append(padded)
+                batch_count += 1
+            except Exception as e:
+                print(f'WARNING: skipping file chunk {file_chunk} because of {e}')
 
         finalized = tuple(
             np.concatenate(batch[feature], axis=0)
