@@ -35,6 +35,15 @@ class ChannelDiscriminator(nn.Module):
         self.main = nn.Sequential(*layers)
 
         if self.return_judgements:
+            if self.conditioning_channels > 0:
+                start_channels = channels[-1] + conditioning_channels
+            else:
+                start_channels = channels[-1]
+            self.mj = nn.Sequential(
+                nn.Conv1d(start_channels, channels[-1], 3, 1, 1),
+                nn.Conv1d(channels[-1], channels[-1], 3, 1, 1),
+                nn.Conv1d(channels[-1], channels[-1], 3, 1, 1),
+            )
             self.judge = nn.Conv1d(channels[-1], 1, 3, 1, 1)
 
     def forward(self, x, feat):
@@ -45,7 +54,15 @@ class ChannelDiscriminator(nn.Module):
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
+
         if self.return_judgements:
+            if self.conditioning_channels > 0:
+                x = torch.cat([x, feat], dim=1)
+
+            for layer in self.mj:
+                x = F.leaky_relu(layer(x), 0.2)
+                features.append(x)
+
             j = self.judge(x)
             return features, x, j
         else:

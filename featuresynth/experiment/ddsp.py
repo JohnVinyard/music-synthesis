@@ -2,6 +2,7 @@ from ..audio import RawAudio
 from .filterbank import FilterBankDiscriminator
 from .realmelgan import Discriminator
 from ..discriminator import ComplextSTFTDiscriminator
+from ..discriminator.multiscale import MultiScaleMultiResDiscriminator
 from ..generator.full import DDSPGenerator
 from .experiment import Experiment
 from ..loss import \
@@ -56,8 +57,12 @@ class OneDimDDSPExperiment(Experiment):
                 output_size=total_samples,
                 scale=scale,
                 samplerate=samplerate),
-            discriminator=FilterBankDiscriminator(
-                filter_bank, total_samples, n_mels),
+            discriminator=MultiScaleMultiResDiscriminator(
+                total_samples,
+                flatten_multiscale_features=False,
+                decompose=True,
+                channel_judgements=True,
+                conditioning_channels=n_mels),
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,

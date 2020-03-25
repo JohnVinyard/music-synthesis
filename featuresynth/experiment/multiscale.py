@@ -36,7 +36,7 @@ class MultiScaleMultiResGroupedFeaturesExperiment(Experiment):
 
         super().__init__(
             generator=MultiScaleGenerator(
-                n_mels, feature_size, total_samples, transposed_conv=False),
+                n_mels, feature_size, total_samples, transposed_conv=True),
             discriminator=MultiScaleMultiResDiscriminator(
                 total_samples,
                 flatten_multiscale_features=False,

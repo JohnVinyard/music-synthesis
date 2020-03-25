@@ -81,6 +81,11 @@ results) and on music.  Finding where conditioning information should be
 injected in the discriminator is a work in progress, and whether transposed
 convolutions are better than nearest-neighbor upsampling
 
+# Wednesday, March 25 3PM
+Injecting conditioning information both per-band and when all bands are fused
+seems to help.
+
+
 # Questions
 - Why do GAN pairs seem to perform so much better on speech than music?  Is it
   the amount of variance in the audio.  Is it a question of consistent loudness
@@ -96,11 +101,17 @@ convolutions are better than nearest-neighbor upsampling
 # TODO
 - multiscale with conditioned disc channels
 - multiscale with no conv transpose
+- multiscale w/out re/decompose
 - multiscale with filterbank generator and disc
 - multiscale with filterbank + filtered noise
-- DDSP generator with multiscale disc
+
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
+ 
+
+- DDSP generator with multiscale disc
+- DDSP generator with linear-spaced filters and multiscale disc
+
 
 
 - FilterBank with mel scale
