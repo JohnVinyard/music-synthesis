@@ -9,13 +9,23 @@ import numpy as np
 
 
 class ChannelDiscriminator(nn.Module):
-    def __init__(self, scale_factors, channels, return_judgements=False):
+    def __init__(
+            self,
+            scale_factors,
+            channels,
+            return_judgements=False,
+            conditioning_channels=0):
+
         super().__init__()
+        self.conditioning_channels = conditioning_channels
         self.return_judgements = return_judgements
         self.channels = channels
         self.scale_factors = scale_factors
         layers = []
+
         for i in range(len(scale_factors)):
+
+
             layers.append(nn.Conv1d(
                 in_channels=channels[i],
                 out_channels=channels[i + 1],
@@ -27,8 +37,11 @@ class ChannelDiscriminator(nn.Module):
         if self.return_judgements:
             self.judge = nn.Conv1d(channels[-1], 1, 3, 1, 1)
 
-    def forward(self, x):
+    def forward(self, x, feat):
         features = []
+
+
+
         for layer in self.main:
             x = F.leaky_relu(layer(x), 0.2)
             features.append(x)
@@ -40,9 +53,16 @@ class ChannelDiscriminator(nn.Module):
 
 
 class MultiScaleDiscriminator(nn.Module):
-    def __init__(self, input_size, decompose=True, channel_judgements=False):
+    def __init__(
+            self,
+            input_size,
+            decompose=True,
+            channel_judgements=False,
+            conditioning_channels=0):
+
         super().__init__()
 
+        self.conditioning_channels = conditioning_channels
         self.channel_judgements = channel_judgements
         self.decompose = decompose
         self.input_size = input_size
@@ -80,21 +100,23 @@ class MultiScaleDiscriminator(nn.Module):
         self.channel_discs = {}
         for key, value in self.spec.items():
             disc = ChannelDiscriminator(
-                **value, return_judgements=self.channel_judgements)
+                **value,
+                return_judgements=self.channel_judgements,
+                conditioning_channels=self.conditioning_channels)
             self.add_module(f'channel_{key}', disc)
             self.channel_discs[key] = disc
 
         final_channels = sum(v['channels'][-1] for v in self.spec.values())
         channels = 512
         self.final = nn.Sequential(
-            nn.Conv1d(final_channels, channels, 3, 1, 1),
+            nn.Conv1d(final_channels + self.conditioning_channels, channels, 3, 1, 1),
             nn.Conv1d(channels, channels, 3, 1, 1),
             nn.Conv1d(channels, channels, 3, 1, 1),
         )
         self.judge = nn.Conv1d(channels, 1, 3, 1, 1)
 
 
-    def forward(self, x):
+    def forward(self, x, feat):
         features = []
         channels = []
         judgements = []
@@ -106,7 +128,7 @@ class MultiScaleDiscriminator(nn.Module):
 
         for size, layer in self.channel_discs.items():
             if self.channel_judgements:
-                f, x, j = layer(bands[size])
+                f, x, j = layer(bands[size], feat)
                 features.append(f)
                 channels.append(x)
                 judgements.append(j)
@@ -116,10 +138,20 @@ class MultiScaleDiscriminator(nn.Module):
                 channels.append(x)
 
         x = torch.cat(channels, dim=1)
+
+        if self.conditioning_channels > 0:
+            # TODO: Consider the alternative (and less memory-intensive) option
+            # adding together unconditioned and computed features, as seen here:
+            # https://arxiv.org/pdf/1909.11646.pdf#page=5
+            # https://github.com/yanggeng1995/GAN-TTS/blob/master/models/discriminator.py#L67
+            feat = F.upsample(feat, size=x.shape[-1])
+            x = torch.cat([x, feat], dim=1)
+
         final_features = []
         for layer in self.final:
             x = F.leaky_relu(layer(x), 0.2)
             final_features.append(x)
+
         features.append(final_features)
         x = self.judge(x)
         judgements.append(x)
@@ -132,13 +164,15 @@ class MultiScaleMultiResDiscriminator(nn.Module):
             input_size,
             flatten_multiscale_features=False,
             decompose=True,
-            channel_judgements=False):
+            channel_judgements=False,
+            conditioning_channels=0):
 
         super().__init__()
+        self.conditioning_channels = conditioning_channels
         self.input_size = input_size
         self.flatten_multiscale_features = flatten_multiscale_features
         self.multiscale = MultiScaleDiscriminator(
-            input_size, decompose, channel_judgements)
+            input_size, decompose, channel_judgements, conditioning_channels)
 
         hop_size = 256
         low_res_input_size = input_size // hop_size
@@ -150,7 +184,7 @@ class MultiScaleMultiResDiscriminator(nn.Module):
         features = []
         judgements = []
 
-        f, j = self.multiscale(x)
+        f, j = self.multiscale(x, feat)
         if self.flatten_multiscale_features:
             # treat features from each band as a single group so they don't
             # dominate the feature-matching loss function

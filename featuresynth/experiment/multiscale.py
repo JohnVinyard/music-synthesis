@@ -36,9 +36,12 @@ class MultiScaleMultiResGroupedFeaturesExperiment(Experiment):
 
         super().__init__(
             generator=MultiScaleGenerator(
-                n_mels, feature_size, total_samples, transposed_conv=True),
+                n_mels, feature_size, total_samples, transposed_conv=False),
             discriminator=MultiScaleMultiResDiscriminator(
-                total_samples, flatten_multiscale_features=True),
+                total_samples,
+                flatten_multiscale_features=False,
+                channel_judgements=True,
+                conditioning_channels=n_mels),
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,

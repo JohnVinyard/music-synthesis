@@ -5,8 +5,7 @@ from .init import weights_init
 from ..audio import MDCT
 from ..discriminator import MDCTDiscriminator
 from ..feature import audio, spectrogram
-from ..generator import \
-    MDCTGenerator
+from ..generator import MDCTGenerator, GroupedMDCTGenerator
 from ..loss import \
     mel_gan_disc_loss, mel_gan_gen_loss, least_squares_generator_loss, \
     least_squares_disc_loss
@@ -25,8 +24,11 @@ class GroupedMDCTExperiment(Experiment):
 
 
         super().__init__(
-            generator=MDCTGenerator(feature_channels),
-            discriminator=MDCTDiscriminator(MDCT.mdct_bins(), feature_size),
+            generator=GroupedMDCTGenerator(feature_channels),
+            discriminator=MDCTDiscriminator(
+                MDCT.mdct_bins(),
+                feature_size,
+                conditioning_channels=feature_channels),
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=MDCT,

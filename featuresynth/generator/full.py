@@ -142,7 +142,7 @@ class DDSPGenerator(nn.Module):
     def _loud(self, x):
         for layer in self.main2:
             x = F.leaky_relu(layer(x), 0.2)
-        x = self.loudness(x) ** 2
+        x = self.loudness(x) #** 2
         return x
 
 
@@ -171,7 +171,7 @@ class DDSPGenerator(nn.Module):
 
         # desired frequency response of FIR filter in the frequency domain
         x = self.nl(x)
-        n_l = self.noise_loudness(x) ** 2
+        n_l = self.noise_loudness(x) #** 2
 
         # l = smooth_upsample2(l, size=input_size * self.upsample_factor)
         # f = smooth_upsample2(f, size=input_size * self.upsample_factor)

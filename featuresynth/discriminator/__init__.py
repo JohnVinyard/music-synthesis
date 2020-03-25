@@ -1,5 +1,5 @@
 from .discriminator import *
-from .mdct import MDCTDiscriminator, TwoDimMDCTDiscriminator
+from .mdct import MDCTDiscriminator
 from .melgan import MelGanDiscriminator
 from .full import FullDiscriminator
 from .filterbank import \

@@ -16,7 +16,6 @@ def oscillator_bank(frequency, amplitude, sample_rate):
     omegas = omegas / sample_rate
 
 
-    # TODO: Try out an alternate version of this without the cumulative sum
     phases = torch.cumsum(omegas, dim=-1)
     wavs = torch.sin(phases)
 

@@ -37,6 +37,7 @@ def batch_stream(
         return x.T.reshape((-1, channels, size))
 
     all_file_chunks = list(iter_audio_chunks(path, pattern))
+    all_file_chunks = list(filter(lambda x: '2157' in x[0], all_file_chunks))
 
     while True:
         batch = defaultdict(list)

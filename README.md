@@ -71,13 +71,22 @@ help audio quality.  My hunch is that using mel-spaced oscillators for the
 generator greatly limits its ability to produce accurate frequencies in higher
 ranges
 
+# Monday, March 23 2020 7AM
+Conditional discriminators seem to be vital for music, or much more diverse 
+sources of audio
+
+# Tuesday, March 24 2020 10PM
+Multiscale discriminators seem to perform fairly well on speech (see earlier 
+results) and on music.  Finding where conditioning information should be 
+injected in the discriminator is a work in progress, and whether transposed
+convolutions are better than nearest-neighbor upsampling
+
 # Questions
-- Why do I suffer performance issues when training on musicnet (after all features have been cached?)
 - Why do GAN pairs seem to perform so much better on speech than music?  Is it
   the amount of variance in the audio.  Is it a question of consistent loudness
   or the presence of long silences?
 - What can be learned from style-transfer-like optimization synth experiment?
-- How far can MDCT or low-res mel spectrograms take me for autoregressive experiments? 
+ 
 
 # TODAY
 - autoregressive feature generator experiment
@@ -85,12 +94,27 @@ ranges
 
 
 # TODO
-- DDSP with two completely separate branches for loudness and pitch
-- Conditional FilterBank
-- fractal with normalized top-level loudness
-- ComplexSTFT
+- multiscale with conditioned disc channels
+- multiscale with no conv transpose
+- multiscale with filterbank generator and disc
+- multiscale with filterbank + filtered noise
+- DDSP generator with multiscale disc
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
+
+
+- FilterBank with mel scale
+- Filterbank w/ noise
+- ComplexSTFT
+- DDSP with two completely separate branches for loudness and pitch
+- MelGAN (conditional?)
+- MDCT (conditional?)
+- multiscale conditional
+- alternate features (lose log scaling, try geometric scale)
+
+- fractal with normalized top-level loudness
+
+
 - organize spectrogram differently, with octaves grouped together
     - `(batch, channels, octave, f0, time)`
 - try DDSP with FM synthesis or banks of octave filters

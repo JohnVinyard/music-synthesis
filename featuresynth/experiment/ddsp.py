@@ -1,6 +1,7 @@
 from ..audio import RawAudio
 from .filterbank import FilterBankDiscriminator
 from .realmelgan import Discriminator
+from ..discriminator import ComplextSTFTDiscriminator
 from ..generator.full import DDSPGenerator
 from .experiment import Experiment
 from ..loss import \
@@ -43,57 +44,9 @@ class OneDimDDSPExperiment(Experiment):
         scale = zounds.MelScale(
             zounds.FrequencyBand(20, samplerate.nyquist - 20), n_osc)
 
-        super().__init__(
-            generator=DDSPGenerator(
-                n_osc=n_osc,
-                input_size=feature_size,
-                in_channels=n_mels,
-                output_size=total_samples,
-                scale=scale,
-                samplerate=samplerate),
-            discriminator=Discriminator(
-                num_D=3,
-                ndf=16,
-                n_layers=4,
-                downsampling_factor=4),
-            learning_rate=1e-4,
-            feature_size=feature_size,
-            audio_repr_class=RawAudio,
-            generator_loss=mel_gan_gen_loss,
-            sub_gen_loss=least_squares_generator_loss,
-            discriminator_loss=mel_gan_disc_loss,
-            sub_disc_loss=least_squares_disc_loss,
-            g_init=weights_init,
-            d_init=weights_init,
-            feature_funcs={
-                'audio': (audio, (samplerate,)),
-                'spectrogram': (spectrogram, (samplerate,))
-            },
-            total_samples=total_samples,
-            feature_channels=n_mels,
-            inference_sequence_factor=4,
-            samplerate=samplerate)
-
-
-class DDSPWithFilterBankDiscriminator(Experiment):
-
-
-    def __init__(self):
-        n_mels = 128
-        n_fft = 1024
-        hop = 256
-        samplerate = zounds.SR22050()
-        feature_size = 32
-        total_samples = 8192
-
-        n_osc = 128
-        scale = zounds.MelScale(
-            zounds.FrequencyBand(20, samplerate.nyquist - 20), n_osc)
-
         filter_bank = zounds.learn.FilterBank(
             samplerate, 511, scale, 0.9, normalize_filters=True,
             a_weighting=False)
-
 
         super().__init__(
             generator=DDSPGenerator(
@@ -104,7 +57,7 @@ class DDSPWithFilterBankDiscriminator(Experiment):
                 scale=scale,
                 samplerate=samplerate),
             discriminator=FilterBankDiscriminator(
-                filter_bank, total_samples),
+                filter_bank, total_samples, n_mels),
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,
@@ -122,5 +75,3 @@ class DDSPWithFilterBankDiscriminator(Experiment):
             feature_channels=n_mels,
             inference_sequence_factor=4,
             samplerate=samplerate)
-
-
