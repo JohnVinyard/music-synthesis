@@ -3,6 +3,7 @@ from ..util.modules import LearnedUpSample, DilatedStack, UpSample
 from ..audio.transform import fft_frequency_recompose
 from torch.nn import functional as F
 import numpy as np
+import torch
 
 
 class ChannelGenerator(nn.Module):
@@ -17,14 +18,16 @@ class ChannelGenerator(nn.Module):
                 layers.append(LearnedUpSample(
                     in_channels=channels[i],
                     out_channels=channels[i + 1],
-                    kernel_size=scale_factors[i] * 2,
+                    # kernel_size=scale_factors[i] * 2,
+                    kernel_size=40,
                     scale_factor=scale_factors[i],
                     activation=lambda x: F.leaky_relu(x, 0.2)))
             else:
                 layers.append(UpSample(
                     in_channels=channels[i],
                     out_channels=channels[i + 1],
-                    kernel_size=scale_factors[i] * 2 + 1,
+                    # kernel_size=scale_factors[i] * 2 + 1,
+                    kernel_size=41,
                     scale_factor=scale_factors[i],
                     activation=lambda x: F.leaky_relu(x, 0.2)))
             layers.append(DilatedStack(
@@ -58,7 +61,7 @@ class MultiScaleGenerator(nn.Module):
         self.input_size = input_size
         self.output_size = output_size
         self.feature_channels = feature_channels
-        self.embedding = nn.Conv1d(feature_channels, 512, 7, 1, 3)
+        self.embedding = nn.Conv1d(feature_channels, 512, 7, 1, padding=0)
         self.upsample_ratio = output_size // input_size
 
         band_sizes = [int(2 ** (np.log2(output_size) - i)) for i in range(5)]
@@ -100,6 +103,7 @@ class MultiScaleGenerator(nn.Module):
     def forward(self, x):
         input_size = x.shape[-1]
 
+        x = torch.nn.ReflectionPad1d(3).forward(x)
         x = F.leaky_relu(self.embedding(x), 0.2)
 
         results = {}

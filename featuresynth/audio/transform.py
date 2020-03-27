@@ -72,6 +72,10 @@ def fft_frequency_decompose(x, min_size):
             signal_ndim=1,
             normalized=True,
             signal_sizes=(current_size,))
+
+        # if recon.shape[-1] != x.shape[-1]:
+        #     recon = torch.zeros_like(recon)
+
         output[recon.shape[-1]] = recon
         current_size *= 2
 
@@ -104,7 +108,10 @@ def fft_frequency_recompose(d, desired_size):
     bands = []
     first_band = min(d.keys())
     for size, band in d.items():
-        bands.append(fft_resample(band, desired_size, size == first_band))
+        resampled = fft_resample(band, desired_size, size == first_band)
+        # if size != desired_size:
+        #     resampled = torch.zeros_like(resampled)
+        bands.append(resampled)
     return sum(bands)
 
 if __name__ == '__main__':

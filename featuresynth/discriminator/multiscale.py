@@ -29,9 +29,9 @@ class ChannelDiscriminator(nn.Module):
             layers.append(nn.Conv1d(
                 in_channels=channels[i],
                 out_channels=channels[i + 1],
-                kernel_size=9,
+                kernel_size=41,
                 stride=scale_factors[i],
-                padding=4))
+                padding=20))
         self.main = nn.Sequential(*layers)
 
         if self.return_judgements:

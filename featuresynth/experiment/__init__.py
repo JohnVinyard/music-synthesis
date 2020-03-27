@@ -3,7 +3,9 @@ from .mdct import GroupedMDCTExperiment
 from .melgan import MultiScaleMelGanExperiment
 from .realmelgan import RealMelGanExperiment
 from .multiscale import \
-    MultiScaleMultiResGroupedFeaturesExperiment, MultiScaleNoDeRecompose
+    MultiScaleMultiResGroupedFeaturesExperiment, MultiScaleNoDeRecompose, \
+    MultiScaleWithDDSPGenerator, MultiScaleNoDeRecomposeNoConvTranspose, \
+    MultiScaleWithSTFTDiscriminator
 from .ddsp import OneDimDDSPExperiment
 from .filterbank import \
     FilterBankExperiment, AlternateFilterBankExperiment, \

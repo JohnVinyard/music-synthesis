@@ -120,7 +120,7 @@ class DDSPGenerator(nn.Module):
 
         # TODO: derive stops and starts from scale
         # n_osc
-        stops = np.geomspace(20, samplerate.nyquist, num=n_osc)
+        stops = np.linspace(20, samplerate.nyquist, num=n_osc)
         # n_osc + 1
         freqs = [0] + list(stops)
         # n_osc

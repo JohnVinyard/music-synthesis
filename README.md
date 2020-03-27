@@ -85,6 +85,12 @@ convolutions are better than nearest-neighbor upsampling
 Injecting conditioning information both per-band and when all bands are fused
 seems to help.
 
+# Friday, March 27 2PM
+An overfitting experiment seems to indicate that the multiscale representation
+should not be decomposed and then recomposed during training.  Per-band 
+gradient information seems to be much stronger in this case, which makes a lot of 
+sense.
+
 
 # Questions
 - Why do GAN pairs seem to perform so much better on speech than music?  Is it
@@ -99,14 +105,15 @@ seems to help.
 
 
 # TODO
-- multiscale with conditioned disc channels
-- multiscale with no conv transpose
-- multiscale w/out re/decompose
+- ~~conv upscale with large gen and disc filters~~
+- *non-learned upscale with large generator and disc filters*
+- conv upscale with large disc filters
+- original multiscale w/out re/decompose
 - multiscale with filterbank generator and disc
 - multiscale with filterbank + filtered noise
-
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
+- DDSP + top band multiscale
  
 
 - DDSP generator with multiscale disc
