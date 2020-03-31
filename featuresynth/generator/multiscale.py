@@ -7,8 +7,15 @@ import torch
 
 
 class ChannelGenerator(nn.Module):
-    def __init__(self, scale_factors, channels, transposed_conv=False):
+    def __init__(
+            self,
+            scale_factors,
+            channels,
+            transposed_conv=False,
+            kernel_size=40):
+
         super().__init__()
+        self.kernel_size = kernel_size
         self.transposed_conv = transposed_conv
         self.channels = channels
         self.scale_factors = scale_factors
@@ -18,16 +25,18 @@ class ChannelGenerator(nn.Module):
                 layers.append(LearnedUpSample(
                     in_channels=channels[i],
                     out_channels=channels[i + 1],
-                    # kernel_size=scale_factors[i] * 2,
-                    kernel_size=40,
+                    kernel_size=scale_factors[i] * 2,
+                    # kernel_size=40,
+                    # kernel_size=self.kernel_size,
                     scale_factor=scale_factors[i],
                     activation=lambda x: F.leaky_relu(x, 0.2)))
             else:
                 layers.append(UpSample(
                     in_channels=channels[i],
                     out_channels=channels[i + 1],
-                    # kernel_size=scale_factors[i] * 2 + 1,
-                    kernel_size=41,
+                    kernel_size=scale_factors[i] * 2 + 1,
+                    # kernel_size=41,
+                    # kernel_size=self.kernel_size + 1,
                     scale_factor=scale_factors[i],
                     activation=lambda x: F.leaky_relu(x, 0.2)))
             layers.append(DilatedStack(
@@ -53,10 +62,12 @@ class MultiScaleGenerator(nn.Module):
             input_size,
             output_size,
             transposed_conv=False,
-            recompose=True):
+            recompose=True,
+            kernel_size=40):
 
         super().__init__()
 
+        self.kernel_size = kernel_size
         self.recompose = recompose
         self.input_size = input_size
         self.output_size = output_size

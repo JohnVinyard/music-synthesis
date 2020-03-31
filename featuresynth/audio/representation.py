@@ -264,24 +264,34 @@ class BasePhaseRecovery(BaseAudioRepresentation):
     def __init__(self, data, samplerate):
         super().__init__(data, samplerate)
 
-    def to_audio(self):
-        coeffs = self.data
-        batch, channels, time = coeffs.shape
-        expected_samples = time * self.HOP
-        coeffs = np.exp(coeffs)
-        pinv = np.linalg.pinv(self.basis)
-        mag = np.tensordot(coeffs, pinv, ((1,), (1,)))
+
+    @classmethod
+    def batch_istft(cls, mag):
+        batch, channels, time = mag.shape
+        expected_samples = time * cls.HOP
+
         samples = []
         for m in mag:
-            c = self.proc.run_lws(m)
-            s = self.proc.istft(c)
+            c = cls.proc.run_lws(m)
+            s = cls.proc.istft(c)
             s = s[:expected_samples]
             samples.append(s)
         samples = np.concatenate([s[None, :] for s in samples], axis=0)
         return samples
 
+    def to_audio(self):
+        coeffs = self.data
+        coeffs = np.exp(coeffs)
+        if self.basis is not None:
+            pinv = np.linalg.pinv(self.basis)
+            mag = np.tensordot(coeffs, pinv, ((1,), (1,)))
+        else:
+            mag = coeffs
+        samples = self.batch_istft(mag)
+        return samples
+
     @classmethod
-    def from_audio(cls, samples, samplerate):
+    def batch_stft(cls, samples):
         batch, _, time = samples.shape
         expected_frames = time // cls.HOP
         coeffs = []
@@ -290,9 +300,19 @@ class BasePhaseRecovery(BaseAudioRepresentation):
             c = c[:expected_frames, :].T  # (time, channels) => (channels, time)
             coeffs.append(c[None, ...])
         coeffs = np.concatenate(coeffs, axis=0)
+        return coeffs
+
+    @classmethod
+    def from_audio(cls, samples, samplerate):
+        coeffs = cls.batch_stft(samples)
         mag = np.abs(coeffs)
-        coeffs = np.tensordot(mag, cls.basis, ((1,), (1,)))
-        coeffs = coeffs.transpose((0, 2, 1  ))
+
+        if cls.basis is not None:
+            coeffs = np.tensordot(mag, cls.basis, ((1,), (1,)))
+        else:
+            coeffs = mag
+
+        coeffs = coeffs.transpose((0, 2, 1))
         coeffs = np.log(coeffs + 1e-12)
         return cls(coeffs, samplerate)
 

@@ -69,6 +69,51 @@ class MultiScaleMultiResGroupedFeaturesExperiment(Experiment):
             inference_sequence_factor=4)
 
 
+class MultiScaleNoDeRecomposeUnconditionedShortKernel(Experiment):
+    """
+
+    """
+
+    def __init__(self):
+        n_mels = 128
+        feature_size = 32
+        samplerate = zounds.SR22050()
+        n_fft = 1024
+        hop = 256
+        total_samples = 8192
+
+
+        super().__init__(
+            generator=MultiScaleGenerator(
+                n_mels,
+                feature_size,
+                total_samples,
+                transposed_conv=True,
+                recompose=False),
+            discriminator=MultiScaleMultiResDiscriminator(
+                total_samples,
+                flatten_multiscale_features=False,
+                channel_judgements=True,
+                decompose=False,
+                kernel_size=9),
+            learning_rate=1e-4,
+            feature_size=feature_size,
+            audio_repr_class=MultiScale,
+            generator_loss=mel_gan_gen_loss,
+            sub_gen_loss=least_squares_generator_loss,
+            discriminator_loss=mel_gan_disc_loss,
+            sub_disc_loss=least_squares_disc_loss,
+            g_init=weights_init,
+            d_init=weights_init,
+            feature_funcs={
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            total_samples=total_samples,
+            feature_channels=n_mels,
+            samplerate=samplerate,
+            inference_sequence_factor=4)
+
 
 class MultiScaleNoDeRecompose(Experiment):
     """
@@ -97,6 +142,101 @@ class MultiScaleNoDeRecompose(Experiment):
                 channel_judgements=True,
                 conditioning_channels=n_mels,
                 decompose=False),
+            learning_rate=1e-4,
+            feature_size=feature_size,
+            audio_repr_class=MultiScale,
+            generator_loss=mel_gan_gen_loss,
+            sub_gen_loss=least_squares_generator_loss,
+            discriminator_loss=mel_gan_disc_loss,
+            sub_disc_loss=least_squares_disc_loss,
+            g_init=weights_init,
+            d_init=weights_init,
+            feature_funcs={
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            total_samples=total_samples,
+            feature_channels=n_mels,
+            samplerate=samplerate,
+            inference_sequence_factor=4)
+
+
+class MultiScaleWithDeRecompose(Experiment):
+    """
+
+    """
+
+    def __init__(self):
+        n_mels = 128
+        feature_size = 32
+        samplerate = zounds.SR22050()
+        n_fft = 1024
+        hop = 256
+        total_samples = 8192
+
+
+        super().__init__(
+            generator=MultiScaleGenerator(
+                n_mels,
+                feature_size,
+                total_samples,
+                transposed_conv=True,
+                recompose=True),
+            discriminator=MultiScaleMultiResDiscriminator(
+                total_samples,
+                flatten_multiscale_features=False,
+                channel_judgements=True,
+                conditioning_channels=n_mels,
+                decompose=True,
+                kernel_size=9),
+            learning_rate=1e-4,
+            feature_size=feature_size,
+            audio_repr_class=RawAudio,
+            generator_loss=mel_gan_gen_loss,
+            sub_gen_loss=least_squares_generator_loss,
+            discriminator_loss=mel_gan_disc_loss,
+            sub_disc_loss=least_squares_disc_loss,
+            g_init=weights_init,
+            d_init=weights_init,
+            feature_funcs={
+                'audio': (audio, (samplerate,)),
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            total_samples=total_samples,
+            feature_channels=n_mels,
+            samplerate=samplerate,
+            inference_sequence_factor=4)
+
+
+class MultiScaleNoDeRecomposeShortKernels(Experiment):
+    """
+
+    """
+
+    def __init__(self):
+        n_mels = 128
+        feature_size = 32
+        samplerate = zounds.SR22050()
+        n_fft = 1024
+        hop = 256
+        total_samples = 8192
+
+
+        super().__init__(
+            generator=MultiScaleGenerator(
+                n_mels,
+                feature_size,
+                total_samples,
+                transposed_conv=True,
+                recompose=False,
+                kernel_size=8),
+            discriminator=MultiScaleMultiResDiscriminator(
+                total_samples,
+                flatten_multiscale_features=False,
+                channel_judgements=True,
+                conditioning_channels=n_mels,
+                decompose=False,
+                kernel_size=9),
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=MultiScale,

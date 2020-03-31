@@ -5,7 +5,8 @@ from .realmelgan import RealMelGanExperiment
 from .multiscale import \
     MultiScaleMultiResGroupedFeaturesExperiment, MultiScaleNoDeRecompose, \
     MultiScaleWithDDSPGenerator, MultiScaleNoDeRecomposeNoConvTranspose, \
-    MultiScaleWithSTFTDiscriminator
+    MultiScaleWithSTFTDiscriminator, MultiScaleNoDeRecomposeShortKernels, \
+    MultiScaleNoDeRecomposeUnconditionedShortKernel, MultiScaleWithDeRecompose
 from .ddsp import OneDimDDSPExperiment
 from .filterbank import \
     FilterBankExperiment, AlternateFilterBankExperiment, \

@@ -1,2 +1,1 @@
-from .multiscale import \
-    MultiScaleMultiResGroupedFeaturesExperiment, MultiScaleNoDeRecompose
+from .multiscale import MultiScaleNoDeRecompose

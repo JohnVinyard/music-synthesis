@@ -91,6 +91,31 @@ class DDSPGenerator(nn.Module):
         )
         self.loudness = nn.Conv1d(c, n_osc, 3, 1, 1)
 
+        # self.twod = nn.Sequential(
+        #     nn.Conv2d(1, 32, (9, 3), (2, 1), (4, 1)), # 64
+        #     nn.Conv2d(32, 64, (9, 3), (2, 1), (4, 1)), # 32
+        #     nn.Conv2d(64, 128, (9, 3), (2, 1), (4, 1)), # 16
+        #     nn.Conv2d(128, 256, (9, 3), (2, 1), (4, 1)), # 8
+        #     nn.Conv2d(256, 512, (9, 3), (2, 1), (4, 1)), # 4
+        #
+        #     # (batch, 512, 4, 32)
+        #
+        #     nn.ConvTranspose2d(512, 256, (8, 3), (2, 1), (3, 1)), # 8
+        #     nn.ConvTranspose2d(256, 128, (8, 3), (2, 1), (3, 1)), # 16
+        #     nn.ConvTranspose2d(128, 64, (8, 3), (2, 1), (3, 1)), # 32
+        #     nn.ConvTranspose2d(64, 32, (8, 3), (2, 1), (3, 1)), # 64
+        #     nn.ConvTranspose2d(32, 2, (8, 3), (2, 1), (3, 1)), # 128
+        # )
+
+        self.twod = nn.Sequential(
+            nn.Conv2d(1, 32, (3, 3), (1, 1), (1, 1)),
+            nn.Conv2d(32, 64, (3, 3), (1, 1), (1, 1)),
+            nn.Conv2d(64, 128, (3, 3), (1, 1), (1, 1)),
+            nn.Conv2d(128, 64, (3, 3), (1, 1), (1, 1)),
+            nn.Conv2d(64, 32, (3, 3), (1, 1), (1, 1)),
+            nn.Conv2d(32, 2, (3, 3), (1, 1), (1, 1)),
+        )
+
 
         centers = np.array([b.center_frequency for b in scale])
         erbs = (centers * 0.108) + 24.7
@@ -99,8 +124,6 @@ class DDSPGenerator(nn.Module):
         self.erbs = torch.from_numpy(erbs).to(device).float()
 
         self.total_samples = output_size
-
-
 
 
         noise_rate = 1024
@@ -145,6 +168,22 @@ class DDSPGenerator(nn.Module):
         x = self.loudness(x) #** 2
         return x
 
+    def _twod(self, x):
+        batch, channels, time = x.shape
+        x = x[:, None, :, :]
+        for i, layer in enumerate(self.twod):
+            last = i == len(self.twod) - 1
+            if last:
+                x = layer(x)
+            else:
+                x = F.leaky_relu(layer(x), 0.2)
+            # print(x.shape)
+        l = x[:, 0, :, :]
+        f = x[:, 0, :, :]
+        f = F.sigmoid(f)
+        f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
+        return l, f
+
 
 
     def forward(self, x):
@@ -162,8 +201,9 @@ class DDSPGenerator(nn.Module):
         # f = self.starts[None, :, None] + (f * self.diffs[None, :, None])
         #
 
-        l = self._loud(x)
-        f = self._freq(x)
+        # l = self._loud(x)
+        # f = self._freq(x)
+        l, f = self._twod(x)
 
         # f = F.tanh(osc[:, self.n_osc:, :]) * 0.5
         # f = self.centers[None, :, None] + (f * self.erbs[None, :, None])
@@ -180,5 +220,7 @@ class DDSPGenerator(nn.Module):
 
         harmonic = oscillator_bank(f, l, int(self.samplerate)).view(x.shape[0], 1, -1)
         noise = noise_bank2(n_l)
-        x = harmonic + noise
+        x = harmonic #+ noise
         return x
+
+

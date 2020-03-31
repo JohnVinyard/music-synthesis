@@ -183,9 +183,10 @@ class AlternateFilterBankExperiment(Experiment):
                 total_samples,
                 n_mels,
                 add_weight_norm=True),
-            discriminator=LargeReceptiveFieldFilterBankDiscriminator(
+            discriminator=FilterBankDiscriminator(
                 disc_filter_bank,
-                add_weight_norm=True),
+                total_samples,
+                conditioning_channels=n_mels),
             learning_rate=1e-4,
             feature_size=feature_size,
             audio_repr_class=RawAudio,

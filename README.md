@@ -91,48 +91,30 @@ should not be decomposed and then recomposed during training.  Per-band
 gradient information seems to be much stronger in this case, which makes a lot of 
 sense.
 
+# Monday, March 30 8PM
+After about 12 hours, the original MelGAN formulation captures the structure of 
+audio, but produces fairly metallic sounds.
+https://generation-report-realmelganexperiment.s3-us-west-1.amazonaws.com/index.html
+Additionally, it appears I can get better high-frequency resolution using 128
+PCA components versus a 128-band mel scale transformation.
 
-# Questions
-- Why do GAN pairs seem to perform so much better on speech than music?  Is it
-  the amount of variance in the audio.  Is it a question of consistent loudness
-  or the presence of long silences?
-- What can be learned from style-transfer-like optimization synth experiment?
+
  
 
-# TODAY
-- autoregressive feature generator experiment
-- autoregressive feature generator experiment using alternate audio repr
 
 
 # TODO
-- ~~conv upscale with large gen and disc filters~~
-- *non-learned upscale with large generator and disc filters*
-- conv upscale with large disc filters
-- original multiscale w/out re/decompose
-- multiscale with filterbank generator and disc
-- multiscale with filterbank + filtered noise
+- how much better does filterbank gen and disc do, without any feature modifications?
+    - try multiscale exeriment with filterbanks and filtered noise
+- does more high-frequency info in features address high-band issue?
+- PCA audio generation experiment
+- do transposed convolutions or nearest-neighbor upsampling work better?
+- does re/decompose approach address thin-sounding audio?
+- does re/decompose cause missing middle issue?
+- PCA-based feature generation experiment (possibly autoregressive)
+
+- try per-channel embeddings in generator
+- try per-channel filter sizes
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)
-- DDSP + top band multiscale
- 
-
-- DDSP generator with multiscale disc
-- DDSP generator with linear-spaced filters and multiscale disc
-
-
-
-- FilterBank with mel scale
-- Filterbank w/ noise
-- ComplexSTFT
-- DDSP with two completely separate branches for loudness and pitch
-- MelGAN (conditional?)
-- MDCT (conditional?)
-- multiscale conditional
-- alternate features (lose log scaling, try geometric scale)
-
-- fractal with normalized top-level loudness
-
-
-- organize spectrogram differently, with octaves grouped together
-    - `(batch, channels, octave, f0, time)`
 - try DDSP with FM synthesis or banks of octave filters

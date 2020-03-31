@@ -6,11 +6,10 @@ from collections import defaultdict
 
 
 def random_slice(arr, feature_length):
-    # try:
-    #     start = np.random.randint(0, len(arr) - feature_length)
-    # except ValueError:
-    #     start = 0
-    start = 100
+    try:
+        start = np.random.randint(0, len(arr) - feature_length)
+    except ValueError:
+        start = 0
     end = start + feature_length
     sliced = arr[start: end]
     padded = pad(sliced, feature_length)
@@ -38,7 +37,7 @@ def batch_stream(
         return x.T.reshape((-1, channels, size))
 
     all_file_chunks = list(iter_audio_chunks(path, pattern))
-    all_file_chunks = list(filter(lambda x: '2157' in x[0], all_file_chunks))[10:11]
+    # all_file_chunks = list(filter(lambda x: '2157' in x[0], all_file_chunks))
 
     while True:
         batch = defaultdict(list)

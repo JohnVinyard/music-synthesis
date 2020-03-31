@@ -10,7 +10,7 @@ from ..loss import mel_gan_disc_loss, hinge_generator_loss
 
 from ..feature import audio, spectrogram
 import zounds
-
+import torch
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -90,8 +90,9 @@ class Generator(nn.Module):
 
 
 class NLayerDiscriminator(nn.Module):
-    def __init__(self, ndf, n_layers, downsampling_factor):
+    def __init__(self, ndf, n_layers, downsampling_factor, conditioning_channels=0):
         super().__init__()
+        self.conditioning_channels = conditioning_channels
         model = nn.ModuleDict()
 
         model["layer_0"] = nn.Sequential(
@@ -124,6 +125,18 @@ class NLayerDiscriminator(nn.Module):
             nn.LeakyReLU(0.2, True),
         )
 
+        if self.conditioning_channels > 0:
+            model["layer_cond"] = nn.Sequential(
+                WNConv1d(nf + conditioning_channels, nf, 3, 1, 1),
+                nn.LeakyReLU(0.2, True),
+                WNConv1d(nf, nf, 3, 1, 1),
+                nn.LeakyReLU(0.2, True),
+                WNConv1d(nf, nf, 3, 1, 1),
+                nn.LeakyReLU(0.2, True),
+            )
+
+
+
         model["layer_%d" % (n_layers + 2)] = WNConv1d(
             nf, 1, kernel_size=3, stride=1, padding=1
         )
@@ -131,21 +144,25 @@ class NLayerDiscriminator(nn.Module):
         self.model = model
 
 
-    def forward(self, x):
+    def forward(self, x, feat):
         results = []
         for key, layer in self.model.items():
+            if 'cond' in key:
+                feat = F.avg_pool1d(feat, feat.shape[-1] // x.shape[-1])
+                x = torch.cat([feat, x], dim=1)
             x = layer(x)
             results.append(x)
         return results
 
 
 class Discriminator(nn.Module):
-    def __init__(self, num_D, ndf, n_layers, downsampling_factor):
+    def __init__(self, num_D, ndf, n_layers, downsampling_factor, conditioning_channels=0):
         super().__init__()
+        self.conditioning_channels = conditioning_channels
         self.model = nn.ModuleDict()
         for i in range(num_D):
             self.model[f"disc_{i}"] = NLayerDiscriminator(
-                ndf, n_layers, downsampling_factor
+                ndf, n_layers, downsampling_factor, conditioning_channels
             )
 
         self.downsample = nn.AvgPool1d(4, stride=2, padding=1,
@@ -156,7 +173,7 @@ class Discriminator(nn.Module):
         features = []
         judgements = []
         for key, disc in self.model.items():
-            z = disc(x)
+            z = disc(x, feat)
             features.append(z[:-1])
             judgements.append(z[-1])
             # results.append(disc(x))
@@ -215,7 +232,11 @@ class RealMelGanExperiment(Experiment):
 
         super().__init__(
             Generator(n_mels, size, n_residual_layers=3),
-            Discriminator(num_D=3, ndf=16, n_layers=4, downsampling_factor=4),
+            Discriminator(
+                num_D=3,
+                ndf=16,
+                n_layers=4,
+                downsampling_factor=4),
             learning_rate=1e-4,
             feature_size=size,
             audio_repr_class=RawAudio,
