@@ -1,7 +1,7 @@
 from ..audio import RawAudio
 from ..audio.representation import BasePhaseRecovery
 from ..train import GeneratorTrainer, DiscriminatorTrainer
-from ..experiment import FilterBankExperiment, ComplexSTFTExperiment
+from ..experiment import FilterBankMultiscaleExperiment
 from ..featuregenerator import SpectrogramFeatureGenerator
 from ..featurediscriminator import SpectrogramFeatureDiscriminator
 from ..feature import spectrogram
@@ -188,7 +188,15 @@ class BaseFeatureExperiment(object):
     def features_to_audio(self, features):
         batch_size = features.shape[0]
         features = torch.from_numpy(features)
-        audio_features = self.vocoder(features).data.cpu().numpy()
+
+        audio_features = self.vocoder(features)
+
+        try:
+            audio_features = audio_features.data.cpu().numpy()
+        except AttributeError:
+            audio_features = \
+                {k:v.data.cpu().numpy() for k, v in audio_features.items()}
+
         # audio_features = audio_features.reshape((batch_size, 1, -1))
         return self.audio_repr_class(audio_features, self.samplerate)
 
@@ -203,28 +211,11 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
         noise_dim = 128
 
 
-        # TODO: I actually need to use the conditional filter bank experiment
-        # here. All experiments, or at least those I care about using in this
-        # second phase, should implement this basic class-level interface
-
-        # vocoder_exp = FilterBankExperiment
-        vocoder_exp = ComplexSTFTExperiment
+        vocoder_exp = FilterBankMultiscaleExperiment
         samplerate = vocoder_exp.SAMPLERATE
-
         generator = vocoder_exp.make_generator()
         generator = vocoder_exp.load_generator_weights(generator)
         vocoder = NeuralVocoder(generator)
-
-        # TODO: The determinstic vocoder is still out of reach and would require
-        # some changes such that my mel feature computations align with those
-        # in BasedPhaseRecovery.  The basic mechanics of this are working,
-        # however
-
-        # phase_vocoder = make_phase_vocoder_class(
-        #     samplerate, vocoder_exp.N_FFT, vocoder_exp.N_MELS)
-        # vocoder = DeterministicVocoder(phase_vocoder, samplerate)
-
-        # spec_func = vocoder_exp.make_spec_func()
 
         disc_channels = 256
 

@@ -100,12 +100,24 @@ PCA components versus a 128-band mel scale transformation.
 
 
  
-
+# Blog posts
+- more about the FFT frequency decomposition
+- refinement of model
 
 
 # TODO
+- Why do low frequencies sound so bad in newest model? Possible differences:
+    - linear vs mel filterbanks
+    - different frequency bands covered
+    - different generator architecture
+    - different filterbank parameters (time/frequency tradeoff)
+    - different input features
+
+- do higher frequencies have a range coverage issue?  More bands or noise help?
+- Are per-channel embeddings a bad idea?
 - how much better does filterbank gen and disc do, without any feature modifications?
     - try multiscale exeriment with filterbanks and filtered noise
+    - try per-channel embeddings in generator
 - does more high-frequency info in features address high-band issue?
 - PCA audio generation experiment
 - do transposed convolutions or nearest-neighbor upsampling work better?
@@ -113,7 +125,7 @@ PCA components versus a 128-band mel scale transformation.
 - does re/decompose cause missing middle issue?
 - PCA-based feature generation experiment (possibly autoregressive)
 
-- try per-channel embeddings in generator
+
 - try per-channel filter sizes
 - think about what it means that multiscale formulation performs well on 
     this many speakers (i.e. it also performs well on TIMIT)

@@ -14,26 +14,25 @@ class SpectrogramCompressor(object):
         super().__init__()
         self._meanstd = StandardScaler()
         self._pca = IncrementalPCA(n_components, batch_size=batch_size)
-        self._kmeans = MiniBatchKMeans(n_clusters=512, batch_size=batch_size)
 
     def partial_fit(self, data):
-        self._meanstd.partial_fit(data)
-        data = self._meanstd.transform(data)
+        # self._meanstd.partial_fit(data)
+        # data = self._meanstd.transform(data)
         self._pca.partial_fit(data)
-        data = self._pca.transform(data)
-        self._kmeans.partial_fit(data)
+        # data = self._pca.transform(data)
+        # self._kmeans.partial_fit(data)
 
 
     def transform(self, data):
-        data = self._meanstd.transform(data)
+        # data = self._meanstd.transform(data)
         data = self._pca.transform(data)
-        data = self._kmeans.predict(data)
+        # data = self._kmeans.predict(data)
         return data
 
     def inverse_transform(self, data):
-        data = self._kmeans.cluster_centers_[data]
+        # data = self._kmeans.cluster_centers_[data]
         data = self._pca.inverse_transform(data)
-        data = self._meanstd.inverse_transform(data)
+        # data = self._meanstd.inverse_transform(data)
         return data
 
 
@@ -52,7 +51,7 @@ class IdentityPhaseReovery(BasePhaseRecovery):
     basis = None
 
 
-def stream(total_samples=8192):
+def stream(total_samples=8192, batch_size=32):
     path = '/hdd/musicnet/train_data'
     pattern = '*.wav'
 
@@ -66,7 +65,7 @@ def stream(total_samples=8192):
         'audio': (audio, (samplerate,))
     }
 
-    batch_size = 32
+    # batch_size = 32
     bs = batch_stream(
         path, pattern, batch_size, feature_spec, 'audio', feature_funcs)
     for batch,  in bs:
@@ -91,7 +90,7 @@ if __name__ == '__main__':
     pca = SpectrogramCompressor(N_MELS, batch_size=1024)
 
     def check_recon():
-        samples, item = next(stream(total_samples=2**17))
+        samples, item = next(stream(total_samples=2**17, batch_size=1))
         batch, time, channels = item.data.shape
         flattened = item.data.reshape((-1, channels))
         reduction = pca.transform(flattened)

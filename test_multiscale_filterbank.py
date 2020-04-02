@@ -28,8 +28,10 @@ def make_filter_banks(taps, bands, sr, size):
             0.05,
             normalize_filters=True,
             a_weighting=False)
+        print(size, sr, out[size].scale)
         size = size // 2
-        sr = sr * 0.5
+        sr = sr * 2
+
     return out
 
 

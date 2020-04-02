@@ -36,7 +36,7 @@ if __name__ == '__main__':
         experiment.resume()
 
     app = zounds.ZoundsApp(globals=globals(), locals=locals())
-    app.start_in_thread(8888)
+    app.start_in_thread(9999)
 
     batch_stream = experiment.batch_stream(path, pattern, args.batch_size)
 

@@ -6,7 +6,8 @@ from .multiscale import \
     MultiScaleMultiResGroupedFeaturesExperiment, MultiScaleNoDeRecompose, \
     MultiScaleWithDDSPGenerator, MultiScaleNoDeRecomposeNoConvTranspose, \
     MultiScaleWithSTFTDiscriminator, MultiScaleNoDeRecomposeShortKernels, \
-    MultiScaleNoDeRecomposeUnconditionedShortKernel, MultiScaleWithDeRecompose
+    MultiScaleNoDeRecomposeUnconditionedShortKernel, MultiScaleWithDeRecompose, \
+    FilterBankMultiscaleExperiment
 from .ddsp import OneDimDDSPExperiment
 from .filterbank import \
     FilterBankExperiment, AlternateFilterBankExperiment, \
