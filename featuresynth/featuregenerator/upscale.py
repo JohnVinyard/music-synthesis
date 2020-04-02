@@ -8,21 +8,21 @@ class SpectrogramFeatureGenerator(nn.Module):
         self.noise_dim = noise_dim
         self.out_channels = out_channels
 
-        self.initial = nn.Linear(noise_dim, 4 * 4 * 1024, bias=False)
+        self.initial = nn.Linear(noise_dim, 4 * 4 * 1024)
         self.stack = nn.Sequential(
-            nn.ConvTranspose2d(1024, 512, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(1024, 512, (4, 4), (2, 2), (1, 1)),
             # (8, 8)
-            nn.ConvTranspose2d(512, 256, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(512, 256, (4, 4), (2, 2), (1, 1)),
             # (16, 16)
-            nn.ConvTranspose2d(256, 128, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(256, 128, (4, 4), (2, 2), (1, 1)),
             # (32, 32)
-            nn.ConvTranspose2d(128, 128, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(128, 128, (4, 4), (2, 2), (1, 1)),
             # (64, 64)
-            nn.ConvTranspose2d(128, 64, (4, 4), (2, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(128, 64, (4, 4), (2, 2), (1, 1)),
             # (128, 128)
-            nn.ConvTranspose2d(64, 32, (3, 4), (1, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(64, 32, (3, 4), (1, 2), (1, 1)),
             # (128, 256)
-            nn.ConvTranspose2d(32, 1, (3, 4), (1, 2), (1, 1), bias=False),
+            nn.ConvTranspose2d(32, 1, (3, 4), (1, 2), (1, 1)),
             # (128, 512)
         )
 

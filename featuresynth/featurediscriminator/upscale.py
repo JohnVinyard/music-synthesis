@@ -17,7 +17,7 @@ class SpectrogramFeatureDiscriminator(nn.Module):
             [1, 3, 9, 27, 1, 1],
             activation=lambda x: F.leaky_relu(x, 0.2),
             residual=True)
-        self.judge = nn.Conv1d(channels, 1, 1, 1, 0, bias=False)
+        self.judge = nn.Conv1d(channels, 1, 1, 1, 0)
 
     def forward(self, x, conditioning):
         # NOTE: Conditioning is meaningless here, as the generator is

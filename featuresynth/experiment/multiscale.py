@@ -12,13 +12,6 @@ import zounds
 from ..feature import audio, spectrogram
 from .init import weights_init
 
-"""
-Things To Try:
-- judgements per band in addition to top-level judgement
-- Filter bank as first discriminator layer and last generator layer for each channel
-- audio representation where bands are stored separately rather than being
-  resampled and summed together for better gradients?
-"""
 
 
 class FilterBankMultiscaleExperiment(Experiment):
