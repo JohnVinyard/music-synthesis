@@ -1,1 +1,1 @@
-from .multiscale import MultiScaleNoDeRecompose
+from .multiscale import FilterBankMultiscaleExperiment
