@@ -1,9 +1,14 @@
+# Music Synthesis
+
 In this repo, I'm developing models for a two-stage music synthsis pipeline.
 
 1. A generative model that can produce sequences of low-frequency audio features, 
    such as a mel spectrogram, or a sequence of chroma and MFCC features.
 2. A conditional generative model that can produce raw audio from the 
    low-frequency features.
+
+![spectrogram](https://generation-report-filterbankmultiscaleexperiment.s3.amazonaws.com/35f29c_feature.png)
+![audio](https://music-vocoder-blog-post.s3.amazonaws.com/audio_full.png)
 
 The second stage is inspired by papers developing spectrogram-to-speech vocoders 
 such as:
