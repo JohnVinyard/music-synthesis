@@ -103,9 +103,12 @@ PCA components versus a 128-band mel scale transformation.
 # Blog posts
 - more about the FFT frequency decomposition
 - refinement of model
+- phase recovery with PCA vs mel spectrograms
 
 
 # TODO
+- autoregressive
+- 1d feature generator
 - Why do low frequencies sound so bad in newest model? Possible differences:
     - linear vs mel filterbanks
     - different frequency bands covered

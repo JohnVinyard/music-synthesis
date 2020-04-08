@@ -156,12 +156,12 @@ class Experiment(BaseGanExperiment):
     @classmethod
     def _gen_name(cls, prefix=''):
         name = cls._name()
-        return f'{prefix}{name}_gen.dat'
+        return f'trained_models/{prefix}{name}_gen.dat'
 
     @classmethod
     def _disc_name(cls, prefix=''):
         name = cls._name()
-        return f'{prefix}{name}_disc.dat'
+        return f'trained_models/{prefix}{name}_disc.dat'
 
     @classmethod
     def load_generator_weights(cls, generator, prefix=''):

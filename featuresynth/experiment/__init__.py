@@ -15,4 +15,8 @@ from .filterbank import \
 from .report import Report
 
 
-from .featureexperiment import TwoDimGeneratorFeatureExperiment
+from .featureexperiment import \
+    TwoDimGeneratorFeatureExperiment, OneDimGeneratorFeatureExperiment, \
+    OneDimGeneratorCollapseDiscriminatorFeatureExperiment, \
+    NearestNeighborOneDimGeneratorCollapseDiscriminatorFeatureExperiment, \
+    TwoDimFeatureExperiment

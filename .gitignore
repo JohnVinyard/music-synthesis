@@ -50,6 +50,7 @@ fabric.properties
 learn/sound/*.mdb
 
 aws-certs/*
+trained_models/*
 deploy/nginx/nginx.conf
 deploy/app/config.py
 deploy/featureextractor/config.py

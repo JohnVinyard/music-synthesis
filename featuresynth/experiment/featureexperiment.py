@@ -1,9 +1,12 @@
-from ..audio import RawAudio
 from ..audio.representation import BasePhaseRecovery
 from ..train import GeneratorTrainer, DiscriminatorTrainer
 from ..experiment import FilterBankMultiscaleExperiment
-from ..featuregenerator import SpectrogramFeatureGenerator
-from ..featurediscriminator import SpectrogramFeatureDiscriminator
+from ..featuregenerator import \
+    SpectrogramFeatureGenerator, OneDimensionalSpectrogramGenerator, \
+    NearestNeighborOneDimensionalSpectrogramGenerator
+from ..featurediscriminator import \
+    SpectrogramFeatureDiscriminator, CollapseSpectrogramFeatureDiscriminator, \
+    TwoDimFeatureDiscriminator
 from ..feature import spectrogram
 from .init import weights_init
 from ..data import batch_stream
@@ -150,11 +153,11 @@ class BaseFeatureExperiment(object):
 
     def _gen_name(self):
         name = self._name()
-        return f'{name}_gen.dat'
+        return f'trained_models/{name}_gen.dat'
 
     def _disc_name(self):
         name = self._name()
-        return f'{name}_disc.dat'
+        return f'trained_models/{name}_disc.dat'
 
     def checkpoint(self):
         torch.save(self.feature_generator.state_dict(), self._gen_name())
@@ -236,6 +239,182 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
             feature_disc=SpectrogramFeatureDiscriminator(
                 feature_channels=vocoder_exp.N_MELS,
                 channels=disc_channels),
+            disc_init=weights_init,
+            disc_loss=disc_loss,
+            feature_funcs={
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            feature_spec={
+                'spectrogram': (512, vocoder_exp.N_MELS)
+            },
+            audio_repr_class=vocoder_exp.AUDIO_REPR_CLASS,
+            learning_rate=1e-4,
+            condition_shape=(noise_dim, 1),
+            samplerate=samplerate)
+
+
+class TwoDimFeatureExperiment(BaseFeatureExperiment):
+
+    def __init__(self):
+        noise_dim = 128
+
+
+        vocoder_exp = FilterBankMultiscaleExperiment
+        samplerate = vocoder_exp.SAMPLERATE
+        generator = vocoder_exp.make_generator()
+        generator = vocoder_exp.load_generator_weights(generator)
+        vocoder = NeuralVocoder(generator)
+
+
+        def gen_loss(r_features, f_features, r_score, f_score, gan_loss):
+            return least_squares_generator_loss(f_score)
+
+        def disc_loss(r_score, f_score, gan_loss):
+            return least_squares_disc_loss(r_score, f_score)
+
+
+        super().__init__(
+            vocoder=vocoder,
+            feature_generator=SpectrogramFeatureGenerator(
+                out_channels=vocoder_exp.N_MELS,
+                noise_dim=noise_dim),
+            generator_init=weights_init,
+            generator_loss=gen_loss,
+            feature_disc=TwoDimFeatureDiscriminator(
+                feature_channels=vocoder_exp.N_MELS),
+            disc_init=weights_init,
+            disc_loss=disc_loss,
+            feature_funcs={
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            feature_spec={
+                'spectrogram': (512, vocoder_exp.N_MELS)
+            },
+            audio_repr_class=vocoder_exp.AUDIO_REPR_CLASS,
+            learning_rate=1e-4,
+            condition_shape=(noise_dim, 1),
+            samplerate=samplerate)
+
+
+class OneDimGeneratorFeatureExperiment(BaseFeatureExperiment):
+
+    def __init__(self):
+        noise_dim = 128
+
+
+        vocoder_exp = FilterBankMultiscaleExperiment
+        samplerate = vocoder_exp.SAMPLERATE
+        generator = vocoder_exp.make_generator()
+        generator = vocoder_exp.load_generator_weights(generator)
+        vocoder = NeuralVocoder(generator)
+
+        disc_channels = 256
+
+        def gen_loss(r_features, f_features, r_score, f_score, gan_loss):
+            return least_squares_generator_loss(f_score)
+
+        def disc_loss(r_score, f_score, gan_loss):
+            return least_squares_disc_loss(r_score, f_score)
+
+
+        super().__init__(
+            vocoder=vocoder,
+            feature_generator=OneDimensionalSpectrogramGenerator(
+                out_channels=vocoder_exp.N_MELS,
+                noise_dim=noise_dim),
+            generator_init=weights_init,
+            generator_loss=gen_loss,
+            feature_disc=SpectrogramFeatureDiscriminator(
+                feature_channels=vocoder_exp.N_MELS,
+                channels=disc_channels),
+            disc_init=weights_init,
+            disc_loss=disc_loss,
+            feature_funcs={
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            feature_spec={
+                'spectrogram': (512, vocoder_exp.N_MELS)
+            },
+            audio_repr_class=vocoder_exp.AUDIO_REPR_CLASS,
+            learning_rate=1e-4,
+            condition_shape=(noise_dim, 1),
+            samplerate=samplerate)
+
+
+class OneDimGeneratorCollapseDiscriminatorFeatureExperiment(BaseFeatureExperiment):
+
+    def __init__(self):
+        noise_dim = 128
+
+
+        vocoder_exp = FilterBankMultiscaleExperiment
+        samplerate = vocoder_exp.SAMPLERATE
+        generator = vocoder_exp.make_generator()
+        generator = vocoder_exp.load_generator_weights(generator)
+        vocoder = NeuralVocoder(generator)
+
+        disc_channels = 256
+
+        def gen_loss(r_features, f_features, r_score, f_score, gan_loss):
+            return least_squares_generator_loss(f_score)
+
+        def disc_loss(r_score, f_score, gan_loss):
+            return least_squares_disc_loss(r_score, f_score)
+
+
+        super().__init__(
+            vocoder=vocoder,
+            feature_generator=OneDimensionalSpectrogramGenerator(
+                out_channels=vocoder_exp.N_MELS,
+                noise_dim=noise_dim),
+            generator_init=weights_init,
+            generator_loss=gen_loss,
+            feature_disc=CollapseSpectrogramFeatureDiscriminator(
+                vocoder_exp.N_MELS),
+            disc_init=weights_init,
+            disc_loss=disc_loss,
+            feature_funcs={
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            feature_spec={
+                'spectrogram': (512, vocoder_exp.N_MELS)
+            },
+            audio_repr_class=vocoder_exp.AUDIO_REPR_CLASS,
+            learning_rate=1e-4,
+            condition_shape=(noise_dim, 1),
+            samplerate=samplerate)
+
+
+class NearestNeighborOneDimGeneratorCollapseDiscriminatorFeatureExperiment(BaseFeatureExperiment):
+
+    def __init__(self):
+        noise_dim = 128
+
+
+        vocoder_exp = FilterBankMultiscaleExperiment
+        samplerate = vocoder_exp.SAMPLERATE
+        generator = vocoder_exp.make_generator()
+        generator = vocoder_exp.load_generator_weights(generator)
+        vocoder = NeuralVocoder(generator)
+
+        disc_channels = 256
+
+        def gen_loss(r_features, f_features, r_score, f_score, gan_loss):
+            return least_squares_generator_loss(f_score)
+
+        def disc_loss(r_score, f_score, gan_loss):
+            return least_squares_disc_loss(r_score, f_score)
+
+
+        super().__init__(
+            vocoder=vocoder,
+            feature_generator=NearestNeighborOneDimensionalSpectrogramGenerator(
+                out_channels=vocoder_exp.N_MELS,
+                noise_dim=noise_dim),
+            generator_init=weights_init,
+            generator_loss=gen_loss,
+            feature_disc=CollapseSpectrogramFeatureDiscriminator(
+                vocoder_exp.N_MELS),
             disc_init=weights_init,
             disc_loss=disc_loss,
             feature_funcs={
