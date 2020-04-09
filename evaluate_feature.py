@@ -62,7 +62,7 @@ if __name__ == '__main__':
     ])
 
     def fake_audio():
-        return experiment.features_to_audio(fake[:1])
+        return experiment.features_to_audio(fake[:1], real_spec.T[None, ...])
 
     def real_audio():
         return experiment.features_to_audio(real_spec.T[None, ...])
@@ -81,6 +81,8 @@ if __name__ == '__main__':
         # TODO: This is gross, but it works
         for k, v in arrs.items():
             locals()[k] = v
+            # if k == 'fake':
+            #     fk = fake_audio()
 
         minutes = elapsed_time.total_seconds() / 60
         print(f'Batch: {i}, Time: {minutes}, Loss: {scalars}')

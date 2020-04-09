@@ -63,78 +63,42 @@ def make_stack(start_size, target_size, layer_func):
 
 
 class ARDiscriminator(nn.Module):
-    def __init__(self, frames, feature_channels, channels, n_judgements, ae):
+    def __init__(self, frames, feature_channels, channels):
         super().__init__()
-        self.n_judgements = n_judgements
         self.channels = channels
         self.feature_channels = feature_channels
         self.frames = frames
 
-        self.encoder = nn.Sequential(
-            nn.Conv1d(1, 128, 7, 2, 3, bias=False),
-            nn.Conv1d(128, 128, 7, 2, 3, bias=False),
-            nn.Conv1d(128, 128, 7, 2, 3, bias=False),
-            nn.Conv1d(128, 128, 7, 2, 3, bias=False),
-            nn.Conv1d(128, 128, 3, 2, 1, bias=False),
-            nn.Conv1d(128, 128, 3, 2, 1, bias=False),
-            nn.Conv1d(128, 128, 3, 2, 1, bias=False),
-            nn.Conv1d(128, 128, 3, 2, 1, bias=False),
-            nn.Conv1d(128, channels, 1, 1, 0, bias=False),
-        )
 
         self.main = nn.Sequential(
-            nn.Conv1d(channels, channels, 2, dilation=1, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=2, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=4, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=8, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=16, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=32, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=64, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=128, bias=False),
+            nn.Conv1d(feature_channels, channels, 2, dilation=1),
+            nn.Conv1d(channels, channels, 2, dilation=2),
+            nn.Conv1d(channels, channels, 2, dilation=4),
+            nn.Conv1d(channels, channels, 2, dilation=8),
+            nn.Conv1d(channels, channels, 2, dilation=16),
+            nn.Conv1d(channels, channels, 2, dilation=32),
+            nn.Conv1d(channels, channels, 2, dilation=64),
+            nn.Conv1d(channels, channels, 2, dilation=128),
+            nn.Conv1d(channels, channels, 2, dilation=256),
         )
 
         self.gate = nn.Sequential(
-            nn.Conv1d(channels, channels, 2, dilation=1, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=2, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=4, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=8, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=16, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=32, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=64, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=128, bias=False),
+            nn.Conv1d(feature_channels, channels, 2, dilation=1),
+            nn.Conv1d(channels, channels, 2, dilation=2),
+            nn.Conv1d(channels, channels, 2, dilation=4),
+            nn.Conv1d(channels, channels, 2, dilation=8),
+            nn.Conv1d(channels, channels, 2, dilation=16),
+            nn.Conv1d(channels, channels, 2, dilation=32),
+            nn.Conv1d(channels, channels, 2, dilation=64),
+            nn.Conv1d(channels, channels, 2, dilation=128),
+            nn.Conv1d(channels, channels, 2, dilation=256),
         )
 
-        self.judge = nn.Conv1d(channels, 1, 1, 1, 0, bias=False)
+        self.judge = nn.Conv1d(channels, 1, 1, 1, 0)
 
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'judge' in name:
-                    xavier_normal_(weight.data, 1)
-                elif 'gate' in name:
-                    xavier_normal_(
-                        weight.data, calculate_gain('sigmoid'))
-                else:
-                    xavier_normal_(
-                        weight.data, calculate_gain('tanh'))
-        return self
 
-    def forward(self, x):
-        batch_size = x.shape[0]
 
-        x = x.permute(0, 2, 1).contiguous().view(-1, 1, self.feature_channels)
-
-        for i, layer in enumerate(self.encoder):
-            if i == len(self.encoder) - 1:
-                x = layer(x)
-            else:
-                x = F.leaky_relu(layer(x), 0.2)
-
-        # x = self.ae[0].encode(x)
-
-        # (batch * frames, latent, 1)
-        x = x.view(batch_size, self.frames, self.channels)
-        x = x.permute(0, 2, 1)
+    def forward(self, x, conditioning):
 
         features = []
         for layer, gate in zip(self.main, self.gate):
@@ -151,7 +115,8 @@ class ARDiscriminator(nn.Module):
         x = self.judge(latent)
 
         x = x[:, :, -1:]
-        return latent[:, :, -1:], x
+        features = []
+        return features, x
 
 
 class Discriminator(nn.Module):

@@ -3,10 +3,10 @@ from ..train import GeneratorTrainer, DiscriminatorTrainer
 from ..experiment import FilterBankMultiscaleExperiment
 from ..featuregenerator import \
     SpectrogramFeatureGenerator, OneDimensionalSpectrogramGenerator, \
-    NearestNeighborOneDimensionalSpectrogramGenerator
+    NearestNeighborOneDimensionalSpectrogramGenerator, ARGenerator
 from ..featurediscriminator import \
     SpectrogramFeatureDiscriminator, CollapseSpectrogramFeatureDiscriminator, \
-    TwoDimFeatureDiscriminator
+    TwoDimFeatureDiscriminator, ARDiscriminator
 from ..feature import spectrogram
 from .init import weights_init
 from ..data import batch_stream
@@ -188,9 +188,21 @@ class BaseFeatureExperiment(object):
             0, 1, (batch_size,) + self.condition_shape)
         return spec, conditioning
 
-    def features_to_audio(self, features):
-        batch_size = features.shape[0]
-        features = torch.from_numpy(features)
+    @property
+    def is_autoregressive(self):
+        try:
+            gen_func = self.feature_generator.generate
+            return True
+        except AttributeError:
+            return False
+
+    def features_to_audio(self, features, real=None):
+        if real is not None and self.is_autoregressive:
+            features = self.feature_generator.generate(
+                torch.from_numpy(real).to(self.device), real.shape[-1])
+            features = features.cpu()
+        else:
+            features = torch.from_numpy(features)
 
         audio_features = self.vocoder(features)
 
@@ -251,6 +263,62 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
             learning_rate=1e-4,
             condition_shape=(noise_dim, 1),
             samplerate=samplerate)
+
+
+
+class AutoregressiveFeatureExperiment(BaseFeatureExperiment):
+
+    def __init__(self):
+        noise_dim = 128
+
+
+        vocoder_exp = FilterBankMultiscaleExperiment
+        samplerate = vocoder_exp.SAMPLERATE
+        generator = vocoder_exp.make_generator()
+        generator = vocoder_exp.load_generator_weights(generator)
+        vocoder = NeuralVocoder(generator)
+
+        def gen_loss(r_features, f_features, r_score, f_score, gan_loss):
+            return least_squares_generator_loss(f_score)
+
+        def disc_loss(r_score, f_score, gan_loss):
+            return least_squares_disc_loss(r_score, f_score)
+
+
+        super().__init__(
+            vocoder=vocoder,
+            feature_generator=ARGenerator(512, vocoder_exp.N_MELS, noise_dim, channels=128),
+            generator_init=weights_init,
+            generator_loss=gen_loss,
+            feature_disc=ARDiscriminator(512, vocoder_exp.N_MELS, channels=128),
+            disc_init=weights_init,
+            disc_loss=disc_loss,
+            feature_funcs={
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            feature_spec={
+                'spectrogram': (512, vocoder_exp.N_MELS)
+            },
+            audio_repr_class=vocoder_exp.AUDIO_REPR_CLASS,
+            learning_rate=1e-4,
+            condition_shape=(noise_dim, 1),
+            samplerate=samplerate)
+
+    def preprocess_batch(self, batch):
+        """
+        Preprocess a batch of real spectrograms
+        Also, produce a conditioning vector
+        """
+        # unpack single-item tuple
+        spec, = batch
+
+        # break causality during training
+        conditioning = spec
+        conditioning = np.pad(
+            conditioning, ((0, 0), (0, 0), (1, 0)), mode='constant')
+        conditioning = conditioning[:, :, :-1]
+
+        return spec, conditioning
 
 
 class TwoDimFeatureExperiment(BaseFeatureExperiment):

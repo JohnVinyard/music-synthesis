@@ -19,4 +19,4 @@ from .featureexperiment import \
     TwoDimGeneratorFeatureExperiment, OneDimGeneratorFeatureExperiment, \
     OneDimGeneratorCollapseDiscriminatorFeatureExperiment, \
     NearestNeighborOneDimGeneratorCollapseDiscriminatorFeatureExperiment, \
-    TwoDimFeatureExperiment
+    TwoDimFeatureExperiment, AutoregressiveFeatureExperiment

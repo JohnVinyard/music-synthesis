@@ -64,86 +64,50 @@ def make_stack(start_size, target_size, layer_func):
 
 
 class ARGenerator(nn.Module):
-    def __init__(self, frames, out_channels, noise_dim, initial_dim, channels,
-                 ae):
+    def __init__(self, frames, out_channels, noise_dim, channels):
         super().__init__()
-        self.initial_dim = initial_dim
         self.out_channels = out_channels
         self.noise_dim = noise_dim
         self.channels = channels
         self.frames = frames
 
         self.main = nn.Sequential(
-            nn.Conv1d(out_channels, channels, 2, dilation=1, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=2, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=4, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=8, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=16, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=32, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=64, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=128, bias=False),
+            nn.Conv1d(out_channels, channels, 2, dilation=1),
+            nn.Conv1d(channels, channels, 2, dilation=2),
+            nn.Conv1d(channels, channels, 2, dilation=4),
+            nn.Conv1d(channels, channels, 2, dilation=8),
+            nn.Conv1d(channels, channels, 2, dilation=16),
+            nn.Conv1d(channels, channels, 2, dilation=32),
+            nn.Conv1d(channels, channels, 2, dilation=64),
+            nn.Conv1d(channels, channels, 2, dilation=128),
+            nn.Conv1d(channels, channels, 2, dilation=256),
         )
 
         self.gate = nn.Sequential(
-            nn.Conv1d(out_channels, channels, 2, dilation=1, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=2, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=4, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=8, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=16, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=32, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=64, bias=False),
-            nn.Conv1d(channels, channels, 2, dilation=128, bias=False),
+            nn.Conv1d(out_channels, channels, 2, dilation=1),
+            nn.Conv1d(channels, channels, 2, dilation=2),
+            nn.Conv1d(channels, channels, 2, dilation=4),
+            nn.Conv1d(channels, channels, 2, dilation=8),
+            nn.Conv1d(channels, channels, 2, dilation=16),
+            nn.Conv1d(channels, channels, 2, dilation=32),
+            nn.Conv1d(channels, channels, 2, dilation=64),
+            nn.Conv1d(channels, channels, 2, dilation=128),
+            nn.Conv1d(channels, channels, 2, dilation=256),
         )
 
-        # self.decoder = nn.Sequential(
-        #     nn.Conv1d(channels, 256, 1, 1, 0, bias=False),
-        #     nn.ConvTranspose1d(128, 128, 4, 2, 1, bias=False),
-        #     nn.ConvTranspose1d(128, 128, 4, 2, 1, bias=False),
-        #     nn.ConvTranspose1d(128, 128, 4, 2, 1, bias=False),
-        #     nn.ConvTranspose1d(128, 128, 8, 2, 3, bias=False),
-        #     nn.ConvTranspose1d(128, 128, 8, 2, 3, bias=False),
-        #     nn.ConvTranspose1d(128, 128, 8, 2, 3, bias=False),
-        #     nn.ConvTranspose1d(128, 1, 8, 2, 3, bias=False),
-        # )
 
-        self.decoder = nn.Sequential(
-            nn.Conv1d(channels, 256, 1, 1, 0, bias=False),
-            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
-            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
-            nn.Conv1d(128, 128, 3, 1, 1, bias=False),
-            nn.Conv1d(128, 128, 7, 1, 3, bias=False),
-            nn.Conv1d(128, 128, 7, 1, 3, bias=False),
-            nn.Conv1d(128, 128, 7, 1, 3, bias=False),
-            nn.Conv1d(128, 1, 7, 1, 3, bias=False),
-        )
+        self.to_frames = nn.Conv1d(channels, out_channels, 1, 1, 0)
 
-        self.to_frames = nn.Conv1d(channels, out_channels, 1, 1, 0, bias=False)
-
-    def initialize_weights(self):
-        for name, weight in self.named_parameters():
-            if weight.data.dim() > 2:
-                if 'to_frames' in name:
-                    xavier_normal_(weight.data, 1)
-                elif 'gate' in name:
-                    xavier_normal_(weight.data, calculate_gain('sigmoid'))
-                elif 'decoder' in name:
-                    xavier_normal_(weight.data,
-                                   calculate_gain('leaky_relu', 0.2))
-                else:
-                    xavier_normal_(weight.data, calculate_gain('tanh'))
-        return self
 
     def generate(self, primer, steps):
         with torch.no_grad():
             x = primer.view(1, self.out_channels, self.frames)
             generated = []
             for i in range(steps):
-                new_frame = self.forward(x)[1][:, :, -1:]
-                # print(new_frame.shape, new_frame.std().item())
+                new_frame = self.forward(x)[:, :, -1:]
                 generated.append(new_frame)
                 x = torch.cat([x, new_frame], dim=-1)[..., 1:]
             result = torch.cat(generated, dim=-1)
-            # print(result.shape)
             return result
 
     def forward(self, x):
@@ -162,35 +126,12 @@ class ARGenerator(nn.Module):
                 x = z
 
         x = sum(features)
+        x = self.to_frames(x)
 
-        x = x.permute(0, 2, 1).contiguous().view(-1, self.channels, 1)
-
-        for i, layer in enumerate(self.decoder):
-            if i == 0:
-                # (batch * frames, latent_dim, 1)
-                x = F.leaky_relu(layer(x), 0.2)
-                # (batch * frames, latent_dim * 2, 1)
-                x = x.permute(0, 2, 1).contiguous().view(
-                    batch_size * self.frames, 2, 128).permute(0, 2,
-                                                              1).contiguous()
-                # x = x.view(batch_size * self.frames, -1, 2)
-                # x = self.decoder_bns[i](x)
-            elif i == len(self.decoder) - 1:
-                x = F.upsample(x, scale_factor=2)
-                x = layer(x) ** 2
-            else:
-                x = F.upsample(x, scale_factor=2)
-                x = F.leaky_relu(layer(x), 0.2)
-                # x = self.decoder_bns[i](x)
-
-        # x = self.ae[0].decode(x)
-
-        # (batch * frames, 1, feature_channels)
-        x = x.view(batch_size, self.frames, self.out_channels) \
-            .permute(0, 2, 1).contiguous()
-
-        x = torch.cat([orig[:, :, :-1], x[:, :, -1:]], dim=-1)
-        return x, x
+        conditioning = orig[:, :, 1:]
+        prediction = x[:, :, -1:]
+        x = torch.cat([conditioning, prediction], dim=-1)
+        return x
 
 
 # class FrameGenerator(nn.Module):
