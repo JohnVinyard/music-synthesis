@@ -3,10 +3,11 @@ from ..train import GeneratorTrainer, DiscriminatorTrainer
 from ..experiment import FilterBankMultiscaleExperiment
 from ..featuregenerator import \
     SpectrogramFeatureGenerator, OneDimensionalSpectrogramGenerator, \
-    NearestNeighborOneDimensionalSpectrogramGenerator, ARGenerator
+    NearestNeighborOneDimensionalSpectrogramGenerator, ARGenerator, \
+    PredictiveGenerator
 from ..featurediscriminator import \
     SpectrogramFeatureDiscriminator, CollapseSpectrogramFeatureDiscriminator, \
-    TwoDimFeatureDiscriminator, ARDiscriminator
+    TwoDimFeatureDiscriminator, ARDiscriminator, PredictiveDiscriminator
 from ..feature import spectrogram
 from .init import weights_init
 from ..data import batch_stream
@@ -122,14 +123,16 @@ class BaseFeatureExperiment(object):
             self.g_optim,
             self.feature_disc,
             self.d_optim,
-            self.generator_loss)
+            self.generator_loss,
+            sub_loss=None)
 
         self.d_trainer = DiscriminatorTrainer(
             self.feature_generator,
             self.g_optim,
             self.feature_disc,
             self.d_optim,
-            self.disc_loss)
+            self.disc_loss,
+            sub_loss=None)
 
 
         self.training_steps = cycle([
@@ -265,7 +268,6 @@ class TwoDimGeneratorFeatureExperiment(BaseFeatureExperiment):
             samplerate=samplerate)
 
 
-
 class AutoregressiveFeatureExperiment(BaseFeatureExperiment):
 
     def __init__(self):
@@ -285,19 +287,23 @@ class AutoregressiveFeatureExperiment(BaseFeatureExperiment):
             return least_squares_disc_loss(r_score, f_score)
 
 
+        frames = 512
+        training_buffer = 64
+        total_frames = frames + training_buffer
+
         super().__init__(
             vocoder=vocoder,
-            feature_generator=ARGenerator(512, vocoder_exp.N_MELS, noise_dim, channels=128),
+            feature_generator=ARGenerator(frames, vocoder_exp.N_MELS, noise_dim, channels=128),
             generator_init=weights_init,
             generator_loss=gen_loss,
-            feature_disc=ARDiscriminator(512, vocoder_exp.N_MELS, channels=128),
+            feature_disc=ARDiscriminator(frames, vocoder_exp.N_MELS, channels=128),
             disc_init=weights_init,
             disc_loss=disc_loss,
             feature_funcs={
                 'spectrogram': (spectrogram, (samplerate,))
             },
             feature_spec={
-                'spectrogram': (512, vocoder_exp.N_MELS)
+                'spectrogram': (total_frames, vocoder_exp.N_MELS)
             },
             audio_repr_class=vocoder_exp.AUDIO_REPR_CLASS,
             learning_rate=1e-4,
@@ -318,6 +324,58 @@ class AutoregressiveFeatureExperiment(BaseFeatureExperiment):
             conditioning, ((0, 0), (0, 0), (1, 0)), mode='constant')
         conditioning = conditioning[:, :, :-1]
 
+        return spec, conditioning
+
+
+class PredictiveFeatureExperiment(BaseFeatureExperiment):
+
+    def __init__(self):
+        noise_dim = 128
+
+
+        vocoder_exp = FilterBankMultiscaleExperiment
+        samplerate = vocoder_exp.SAMPLERATE
+        generator = vocoder_exp.make_generator()
+        generator = vocoder_exp.load_generator_weights(generator)
+        vocoder = NeuralVocoder(generator)
+
+        def gen_loss(r_features, f_features, r_score, f_score, gan_loss):
+            return least_squares_generator_loss(f_score)
+
+        def disc_loss(r_score, f_score, gan_loss):
+            return least_squares_disc_loss(r_score, f_score)
+
+
+        frames = 256
+        disc_channels = 256
+
+        super().__init__(
+            vocoder=vocoder,
+            feature_generator=PredictiveGenerator(),
+            generator_init=weights_init,
+            generator_loss=gen_loss,
+            feature_disc=PredictiveDiscriminator(),
+            disc_init=weights_init,
+            disc_loss=disc_loss,
+            feature_funcs={
+                'spectrogram': (spectrogram, (samplerate,))
+            },
+            feature_spec={
+                'spectrogram': (frames, vocoder_exp.N_MELS)
+            },
+            audio_repr_class=vocoder_exp.AUDIO_REPR_CLASS,
+            learning_rate=1e-4,
+            condition_shape=(noise_dim, 1),
+            samplerate=samplerate)
+
+    def preprocess_batch(self, batch):
+        """
+        Preprocess a batch of real spectrograms
+        Also, produce a conditioning vector
+        """
+        # unpack single-item tuple
+        spec, = batch
+        conditioning = spec
         return spec, conditioning
 
 

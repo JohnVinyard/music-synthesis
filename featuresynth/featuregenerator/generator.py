@@ -95,11 +95,26 @@ class ARGenerator(nn.Module):
             nn.Conv1d(channels, channels, 2, dilation=256),
         )
 
+        # self.decoder = nn.Sequential(
+        #     nn.Conv1d(channels, channels * 4, 1, 1, 0),
+        #     nn.LeakyReLU(0.2),
+        #     nn.ConvTranspose2d(128, 128, (4, 1), (2, 1), (1, 0)), # 8
+        #     nn.LeakyReLU(0.2),
+        #     nn.ConvTranspose2d(128, 128, (4, 1), (2, 1), (1, 0)), # 16
+        #     nn.LeakyReLU(0.2),
+        #     nn.ConvTranspose2d(128, 64, (4, 1), (2, 1), (1, 0)), # 32
+        #     nn.LeakyReLU(0.2),
+        #     nn.ConvTranspose2d(64, 32, (4, 1), (2, 1), (1, 0)), # 64
+        #     nn.LeakyReLU(0.2),
+        #     nn.ConvTranspose2d(32, 1, (4, 1), (2, 1), (1, 0)) # 128
+        # )
 
         self.to_frames = nn.Conv1d(channels, out_channels, 1, 1, 0)
+        self.to_frames_gate = nn.Conv1d(channels, 1, 1, 1, 0)
 
 
     def generate(self, primer, steps):
+        primer = primer[:, :, :self.frames]
         with torch.no_grad():
             x = primer.view(1, self.out_channels, self.frames)
             generated = []
@@ -111,8 +126,11 @@ class ARGenerator(nn.Module):
             return result
 
     def forward(self, x):
-        batch_size = x.shape[0]
-        orig = x = x.view(batch_size, self.out_channels, self.frames)
+        batch, channels, frames = x.shape
+        predictions = (frames - self.frames) + 1
+
+        # batch_size = x.shape[0]
+        orig = x = x.view(batch, self.out_channels, -1)
 
         features = []
         for layer, gate in zip(self.main, self.gate):
@@ -126,10 +144,17 @@ class ARGenerator(nn.Module):
                 x = z
 
         x = sum(features)
-        x = self.to_frames(x)
+        # for layer in self.decoder:
+        #     x = layer(x)
+        #     if x.shape[1] == 128 * 4:
+        #         x = x.view(batch_size, 128, 4, -1)
+        #
+        # x = x.view(batch_size, self.out_channels, -1)
 
-        conditioning = orig[:, :, 1:]
-        prediction = x[:, :, -1:]
+        x = self.to_frames(x) * self.to_frames_gate(x)
+
+        conditioning = orig[:, :, :-predictions]
+        prediction = x[:, :, -predictions:]
         x = torch.cat([conditioning, prediction], dim=-1)
         return x
 

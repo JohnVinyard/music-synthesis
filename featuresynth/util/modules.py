@@ -120,6 +120,7 @@ class DilatedStack(nn.Module):
         features = []
         for layer in self.main:
             z = layer(x)
+            z = z[:, :, :x.shape[-1]]
             if self.residual and z.shape[1] == x.shape[1]:
                 x = self.activation(z + x)
             else:

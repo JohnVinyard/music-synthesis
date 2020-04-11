@@ -69,6 +69,21 @@ class ARDiscriminator(nn.Module):
         self.feature_channels = feature_channels
         self.frames = frames
 
+        # self.encoder = nn.Sequential(
+        #     nn.Conv2d(1, 32, (9, 1), (2, 1), (4, 0)), # 64
+        #     nn.LeakyReLU(0.2),
+        #     nn.Conv2d(32, 64, (9, 1), (2, 1), (4, 0)), # 32
+        #     nn.LeakyReLU(0.2),
+        #     nn.Conv2d(64, 128, (9, 1), (2, 1), (4, 0)), # 16
+        #     nn.LeakyReLU(0.2),
+        #     nn.Conv2d(128, 128, (9, 1), (2, 1), (4, 0)), # 8
+        #     nn.LeakyReLU(0.2),
+        #     nn.Conv2d(128, 128, (3, 1), (2, 1), (1, 0)), # 4
+        #     nn.LeakyReLU(0.2),
+        #     nn.Conv2d(128, 128, (4, 1), (1, 1), (0, 0)),
+        #     nn.LeakyReLU(0.2)
+        # )
+
 
         self.main = nn.Sequential(
             nn.Conv1d(feature_channels, channels, 2, dilation=1),
@@ -99,6 +114,13 @@ class ARDiscriminator(nn.Module):
 
 
     def forward(self, x, conditioning):
+        batch, channels, time = x.shape
+        predictions = (time - self.frames) + 1
+        # x = x.view(batch, 1, channels, time)
+        # for layer in self.encoder:
+        #     x = layer(x)
+        #
+        # x = x.view(batch, -1, time)
 
         features = []
         for layer, gate in zip(self.main, self.gate):
@@ -111,10 +133,11 @@ class ARDiscriminator(nn.Module):
             else:
                 x = z
 
+
         latent = sum(features)
         x = self.judge(latent)
 
-        x = x[:, :, -1:]
+        x = x[:, :, -predictions:]
         features = []
         return features, x
 
@@ -557,3 +580,52 @@ class FullDiscriminator(nn.Module):
         return latent, x
 
 
+
+class PredictiveDiscriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # self.main = nn.Sequential(
+        #     nn.Conv2d(1, 8, (2, 2), (1, 1), padding=(1, 1), dilation=(1, 1)),
+        #     nn.Conv2d(8, 16, (2, 2), (1, 1), padding=(1, 1), dilation=(2, 2)),
+        #     nn.Conv2d(16, 32, (2, 2), (1, 1), padding=(2, 2), dilation=(4, 4)),
+        #     nn.Conv2d(32, 64, (2, 2), (1, 1), padding=(4, 4), dilation=(8, 8)),
+        #     nn.Conv2d(64, 128, (2, 2), (1, 1), padding=(8, 8), dilation=(16, 16)),
+        #     nn.Conv2d(128, 128, (2, 2), (1, 1), padding=(16, 16), dilation=(32, 32)),
+        #     nn.Conv2d(128, 128, (2, 2), (1, 1), padding=(32, 32), dilation=(64, 64)),
+        #     nn.Conv2d(128, 1, (2, 2), (1, 1), padding=(64, 64), dilation=(128, 128)),
+        # )
+
+        self.main = nn.Sequential(
+            nn.Conv1d(128, 256, 7, 2, 3),  # 128
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(256, 512, 7, 2, 3),  # 64
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(512, 512, 7, 2, 3),  # 32
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(512, 1024, 7, 2, 3),  # 16
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(1024, 1024, 7, 2, 3),  # 8
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(1024, 1024, 7, 2, 3),  # 4
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(1024, 2048, 3, 2, 1),  # 2
+            nn.LeakyReLU(0.2),
+            nn.Conv1d(2048, 1, 3, 2, 1)
+        )
+
+    def forward(self, x, conditioning):
+        # x = x[:, None, :, :]
+        # for i, layer in enumerate(self.main):
+        #     if i == len(self.main) - 1:
+        #         x = layer(x)
+        #     else:
+        #         x = F.leaky_relu(layer(x), 0.2)
+
+        x = self.main(x)
+
+        # for layer in self.main:
+        #     x = layer(x)
+        #     print(x.shape)
+
+        features = []
+        return features, x

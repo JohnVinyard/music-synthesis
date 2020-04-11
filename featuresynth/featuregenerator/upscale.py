@@ -1,6 +1,7 @@
 from torch import nn
 from torch.nn import functional as F
-
+import torch
+from ..util.modules import DilatedStack
 
 class OneDimensionalSpectrogramGenerator(nn.Module):
     def __init__(self, out_channels, noise_dim):
@@ -111,3 +112,57 @@ class SpectrogramFeatureGenerator(nn.Module):
         return x
 
 
+
+
+class PredictiveGenerator(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+
+        self.main = nn.Sequential(
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(1, 8, (2, 2), (1, 1), dilation=(1, 1)),
+            nn.LeakyReLU(0.2),
+
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(8, 16, (2, 2), (1, 1), dilation=(2, 2)),
+            nn.LeakyReLU(0.2),
+
+            nn.ReflectionPad2d((2, 2, 2, 2)),
+            nn.Conv2d(16, 32, (2, 2), (1, 1), dilation=(4, 4)),
+            nn.LeakyReLU(0.2),
+
+            nn.ReflectionPad2d((4, 4, 4, 4)),
+            nn.Conv2d(32, 64, (2, 2), (1, 1), dilation=(8, 8)),
+            nn.LeakyReLU(0.2),
+
+            nn.ReflectionPad2d((8, 8, 8, 8)),
+            nn.Conv2d(64, 128, (2, 2), (1, 1), dilation=(16, 16)),
+            nn.LeakyReLU(0.2),
+
+            nn.ReflectionPad2d((16, 16, 16, 16)),
+            nn.Conv2d(128, 128, (2, 2), (1, 1), dilation=(32, 32)),
+            nn.LeakyReLU(0.2),
+
+            nn.ReflectionPad2d((32, 32, 32, 32)),
+            nn.Conv2d(128, 1, (2, 2), (1, 1), dilation=(64, 64)),
+        )
+
+
+
+    def forward(self, x):
+        batch, channels, frames = x.shape
+
+        x = x[:, None, :, :]
+
+        actual = x[..., 128:]
+        x = x[..., :128]
+
+        x = self.main(x)
+
+        x = x[:, :, :128, :128]
+
+
+        x = torch.cat([actual, x], dim=-1)
+        x = x.view(batch, channels, frames)
+        return x

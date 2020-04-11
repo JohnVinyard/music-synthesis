@@ -1,4 +1,4 @@
 from .generator import *
 from .upscale import \
     SpectrogramFeatureGenerator, OneDimensionalSpectrogramGenerator, \
-    NearestNeighborOneDimensionalSpectrogramGenerator
+    NearestNeighborOneDimensionalSpectrogramGenerator, PredictiveGenerator
