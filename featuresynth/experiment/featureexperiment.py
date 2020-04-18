@@ -1,22 +1,27 @@
+from itertools import cycle
+
+import numpy as np
+import torch
+import zounds
+from librosa.filters import mel
+from sklearn.decomposition import IncrementalPCA
+from torch.optim import Adam
+
+from .init import weights_init
 from ..audio.representation import BasePhaseRecovery
-from ..train import GeneratorTrainer, DiscriminatorTrainer
+from ..data import batch_stream
 from ..experiment import FilterBankMultiscaleExperiment
+from ..feature import spectrogram, audio
+from ..featurediscriminator import \
+    SpectrogramFeatureDiscriminator, CollapseSpectrogramFeatureDiscriminator, \
+    TwoDimFeatureDiscriminator, ARDiscriminator
 from ..featuregenerator import \
     SpectrogramFeatureGenerator, OneDimensionalSpectrogramGenerator, \
     NearestNeighborOneDimensionalSpectrogramGenerator, ARGenerator, \
     PredictiveGenerator
-from ..featurediscriminator import \
-    SpectrogramFeatureDiscriminator, CollapseSpectrogramFeatureDiscriminator, \
-    TwoDimFeatureDiscriminator, ARDiscriminator, PredictiveDiscriminator
-from ..feature import spectrogram
-from .init import weights_init
-from ..data import batch_stream
 from ..loss import least_squares_generator_loss, least_squares_disc_loss
-from torch.optim import Adam
-import torch
-from itertools import cycle
-import numpy as np
-from librosa.filters import mel
+from ..train import GeneratorTrainer, DiscriminatorTrainer
+
 
 def make_phase_vocoder_class(samplerate, n_fft, n_mels):
 
@@ -27,6 +32,43 @@ def make_phase_vocoder_class(samplerate, n_fft, n_mels):
             n_mels=n_mels)
 
     return PhaseRecovery
+
+
+class PcaRepresentation(BasePhaseRecovery):
+    basis = None
+    pca = IncrementalPCA(n_components=128)
+    fit_count = 0
+
+    @classmethod
+    def _to_sklearn(cls, x):
+        # batch, channels, time
+        channels = x.shape[1]
+        return x.transpose((0, 2, 1)).reshape((-1, channels))
+
+    @classmethod
+    def _from_sklearn(cls, x, time):
+        # batch * time, channels
+        channels = x.shape[-1]
+        return x.reshape((-1, time, channels)).transpose((0, 2, 1))
+
+    @classmethod
+    def _postprocess_coeffs(cls, coeffs):
+        batch, time, channels = coeffs.shape
+        coeffs = coeffs.reshape((batch * time, channels))
+        if cls.fit_count < 200:
+            cls.pca.partial_fit(coeffs)
+            cls.fit_count += 1
+        coeffs = cls.pca.transform(coeffs)
+        coeffs = coeffs.reshape((batch, time, -1))
+        return coeffs
+
+    @classmethod
+    def _postprocess_mag(self, mag):
+        batch, channels, time = mag.shape
+        mag = mag.transpose((0, 2, 1)).reshape((batch * time, channels))
+        mag = self.pca.inverse_transform(mag)
+        mag = mag.reshape((batch, time, -1))
+        return mag
 
 class BaseVocoder(object):
     def __call__(self, features):
@@ -43,8 +85,9 @@ class DeterministicVocoder(BaseVocoder):
             features = features.data.cpu().numpy()
         except AttributeError:
             pass
-        r = self.repr_class(features, self.samplerate)
-        return r.to_audio()
+        return features
+        # r = self.repr_class(features, self.samplerate)
+        # return r.to_audio()
 
 class NeuralVocoder(BaseVocoder):
     def __init__(self, network):
@@ -84,10 +127,12 @@ class BaseFeatureExperiment(object):
             audio_repr_class,
             learning_rate,
             condition_shape,
-            samplerate):
+            samplerate,
+            anchor_feature='spectrogram'):
 
         super().__init__()
 
+        self.anchor_feature = anchor_feature
         self.feature_spec = feature_spec
         self.samplerate = samplerate
         self.condition_shape = condition_shape
@@ -176,7 +221,7 @@ class BaseFeatureExperiment(object):
             pattern,
             batch_size,
             self.feature_spec,
-            'spectrogram',
+            self.anchor_feature,
             self.feature_funcs)
 
     def preprocess_batch(self, batch):
@@ -202,18 +247,19 @@ class BaseFeatureExperiment(object):
     def features_to_audio(self, features, real=None):
         if real is not None and self.is_autoregressive:
             features = self.feature_generator.generate(
-                torch.from_numpy(real).to(self.device), real.shape[-1])
+                torch.from_numpy(real).to(self.device))
             features = features.cpu()
         else:
             features = torch.from_numpy(features)
 
         audio_features = self.vocoder(features)
 
-        try:
-            audio_features = audio_features.data.cpu().numpy()
-        except AttributeError:
-            audio_features = \
-                {k:v.data.cpu().numpy() for k, v in audio_features.items()}
+        if not isinstance(audio_features, np.ndarray):
+            try:
+                audio_features = audio_features.data.cpu().numpy()
+            except AttributeError:
+                audio_features = \
+                    {k:v.data.cpu().numpy() for k, v in audio_features.items()}
 
         # audio_features = audio_features.reshape((batch_size, 1, -1))
         return self.audio_repr_class(audio_features, self.samplerate)
@@ -354,7 +400,8 @@ class PredictiveFeatureExperiment(BaseFeatureExperiment):
             feature_generator=PredictiveGenerator(),
             generator_init=weights_init,
             generator_loss=gen_loss,
-            feature_disc=PredictiveDiscriminator(),
+            feature_disc=SpectrogramFeatureDiscriminator(
+                vocoder_exp.N_MELS, disc_channels),
             disc_init=weights_init,
             disc_loss=disc_loss,
             feature_funcs={
@@ -377,6 +424,60 @@ class PredictiveFeatureExperiment(BaseFeatureExperiment):
         spec, = batch
         conditioning = spec
         return spec, conditioning
+
+
+class PredictivePcaFeatureExperiment(BaseFeatureExperiment):
+
+    def __init__(self):
+        noise_dim = 128
+
+
+        samplerate = zounds.SR22050()
+        repr_class = PcaRepresentation
+        vocoder = DeterministicVocoder(repr_class, samplerate)
+
+        n_features = repr_class.pca.n_components
+
+        def gen_loss(r_features, f_features, r_score, f_score, gan_loss):
+            return least_squares_generator_loss(f_score)
+
+        def disc_loss(r_score, f_score, gan_loss):
+            return least_squares_disc_loss(r_score, f_score)
+
+        disc_channels = 256
+
+        super().__init__(
+            vocoder=vocoder,
+            feature_generator=PredictiveGenerator(),
+            generator_init=weights_init,
+            generator_loss=gen_loss,
+            feature_disc=SpectrogramFeatureDiscriminator(
+                n_features, disc_channels),
+            disc_init=weights_init,
+            disc_loss=disc_loss,
+            feature_funcs={
+                'audio': (audio, (samplerate,))
+            },
+            feature_spec={
+                'audio': (2**16, 1)
+            },
+            audio_repr_class=PcaRepresentation,
+            learning_rate=1e-4,
+            condition_shape=(noise_dim, 1),
+            samplerate=samplerate,
+            anchor_feature='audio')
+
+    def preprocess_batch(self, batch):
+        """
+        Preprocess a batch of real spectrograms
+        Also, produce a conditioning vector
+        """
+        # unpack single-item tuple
+        audio, = batch
+        repr = self.audio_repr_class.from_audio(audio, self.samplerate)
+        feature = repr.data.transpose((0, 2, 1))
+        conditioning = feature
+        return feature, conditioning
 
 
 class TwoDimFeatureExperiment(BaseFeatureExperiment):

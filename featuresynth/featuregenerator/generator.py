@@ -113,7 +113,7 @@ class ARGenerator(nn.Module):
         self.to_frames_gate = nn.Conv1d(channels, 1, 1, 1, 0)
 
 
-    def generate(self, primer, steps):
+    def generate(self, primer, steps=512):
         primer = primer[:, :, :self.frames]
         with torch.no_grad():
             x = primer.view(1, self.out_channels, self.frames)
@@ -155,6 +155,11 @@ class ARGenerator(nn.Module):
 
         conditioning = orig[:, :, :-predictions]
         prediction = x[:, :, -predictions:]
+
+        # TODO: Make cumulative sum difference generation optional
+        prediction = torch.cat([conditioning[..., -1:], prediction], dim=-1)
+        prediction = torch.cumsum(prediction, dim=-1)[..., 1:]
+
         x = torch.cat([conditioning, prediction], dim=-1)
         return x
 

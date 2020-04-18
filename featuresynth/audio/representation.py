@@ -6,6 +6,7 @@ import zounds
 import lws
 from scipy.signal import hann
 import torch
+import concurrent.futures
 
 
 class BaseAudioRepresentation(object):
@@ -250,6 +251,7 @@ class UnwrappedPhaseSTFT(STFT):
         return cls(data, samplerate)
 
 
+
 class BasePhaseRecovery(BaseAudioRepresentation):
     """
     Adapted from Chris Donahue's IPython notebook here:
@@ -269,7 +271,6 @@ class BasePhaseRecovery(BaseAudioRepresentation):
     def batch_istft(cls, mag):
         batch, channels, time = mag.shape
         expected_samples = time * cls.HOP
-
         samples = []
         for m in mag:
             c = cls.proc.run_lws(m)
@@ -279,14 +280,22 @@ class BasePhaseRecovery(BaseAudioRepresentation):
         samples = np.concatenate([s[None, :] for s in samples], axis=0)
         return samples
 
-    def to_audio(self):
-        coeffs = self.data
-        coeffs = np.exp(coeffs)
+    def _unembed(self, coeffs):
         if self.basis is not None:
             pinv = np.linalg.pinv(self.basis)
             mag = np.tensordot(coeffs, pinv, ((1,), (1,)))
         else:
             mag = coeffs
+        return mag
+
+    def _postprocess_mag(self, mag):
+        return mag
+
+    def to_audio(self):
+        coeffs = self.data
+        coeffs = self._postprocess_mag(coeffs)
+        coeffs = np.exp(coeffs)
+        mag = self._unembed(coeffs)
         samples = self.batch_istft(mag)
         return samples
 
@@ -303,17 +312,25 @@ class BasePhaseRecovery(BaseAudioRepresentation):
         return coeffs
 
     @classmethod
-    def from_audio(cls, samples, samplerate):
-        coeffs = cls.batch_stft(samples)
-        mag = np.abs(coeffs)
-
+    def _embed(cls, mag):
         if cls.basis is not None:
             coeffs = np.tensordot(mag, cls.basis, ((1,), (1,)))
         else:
             coeffs = mag
+        return coeffs
 
+    @classmethod
+    def _postprocess_coeffs(cls, coeffs):
+        return coeffs
+
+    @classmethod
+    def from_audio(cls, samples, samplerate):
+        coeffs = cls.batch_stft(samples)
+        mag = np.abs(coeffs)
+        coeffs = cls._embed(mag)
         coeffs = coeffs.transpose((0, 2, 1))
         coeffs = np.log(coeffs + 1e-12)
+        coeffs = cls._postprocess_coeffs(coeffs)
         return cls(coeffs, samplerate)
 
 

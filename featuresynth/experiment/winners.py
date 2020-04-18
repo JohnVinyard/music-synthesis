@@ -1,1 +1,2 @@
 from .multiscale import FilterBankMultiscaleExperiment
+from .featureexperiment import TwoDimGeneratorFeatureExperiment

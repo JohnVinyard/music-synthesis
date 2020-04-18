@@ -84,7 +84,7 @@ def train_pca(pca):
 if __name__ == '__main__':
 
     app = zounds.ZoundsApp(locals=locals(), globals=globals())
-    app.start_in_thread(9999)
+    app.start_in_thread(8888)
 
     # pca = IncrementalPCA(n_components=N_MELS, batch_size=1024)
     pca = SpectrogramCompressor(N_MELS, batch_size=1024)

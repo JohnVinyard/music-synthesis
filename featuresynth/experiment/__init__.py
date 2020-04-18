@@ -20,4 +20,4 @@ from .featureexperiment import \
     OneDimGeneratorCollapseDiscriminatorFeatureExperiment, \
     NearestNeighborOneDimGeneratorCollapseDiscriminatorFeatureExperiment, \
     TwoDimFeatureExperiment, AutoregressiveFeatureExperiment, \
-    PredictiveFeatureExperiment
+    PredictiveFeatureExperiment, PredictivePcaFeatureExperiment

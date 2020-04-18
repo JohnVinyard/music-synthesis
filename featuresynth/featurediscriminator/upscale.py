@@ -22,9 +22,8 @@ class SpectrogramFeatureDiscriminator(nn.Module):
     def forward(self, x, conditioning):
         # NOTE: Conditioning is meaningless here, as the generator is
         # unconditioned
-        x = self.stack(x)
+        features, x = self.stack(x, return_features=True)
         x = self.judge(x)
-        features = []
         return features, x
 
 
@@ -49,9 +48,9 @@ class CollapseSpectrogramFeatureDiscriminator(nn.Module):
             nn.LeakyReLU(0.2),
             nn.Conv1d(1024, 2048, 3, 2, 1), # 8
             nn.LeakyReLU(0.2),
-            nn.Conv1d(2048, 2048, 3, 2, 1), # 4
-            nn.LeakyReLU(0.2),
-            nn.Conv1d(2048, 1, 2, 1, 0), # 2
+            nn.Conv1d(2048, 1, 3, 2, 1), # 4
+            # nn.LeakyReLU(0.2),
+            # nn.Conv1d(2048, 1, 2, 1, 0), # 2
         )
 
 

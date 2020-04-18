@@ -128,6 +128,8 @@ discriminator produces somewhat realistic spectrograms, still with a noticeable
 "seam".  A dense dilated two-dimensional generator paired with a discriminator
 that collapses into a single judgement fails to learn anything.
 
+## Saturday, April 11 7AM
+
 
 
 # Blog posts
