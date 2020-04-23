@@ -85,9 +85,11 @@ class DilatedStack(nn.Module):
             dilations,
             activation,
             residual=True,
-            groups=None):
+            groups=None,
+            reflection_padding=False):
 
         super().__init__()
+        self.reflection_padding = reflection_padding
         if groups is None:
             groups = [1] * len(dilations)
 
@@ -101,11 +103,12 @@ class DilatedStack(nn.Module):
 
         layers = []
         for i, d in enumerate(dilations):
+            padding = 0 if self.reflection_padding else d
             layers.append(nn.Conv1d(
                 in_channels if i == 0 else channels,
                 channels,
                 kernel_size,
-                padding=d,
+                padding=padding,
                 dilation=d,
                 groups=groups[i],
                 bias=False))
@@ -119,7 +122,12 @@ class DilatedStack(nn.Module):
         x = x.view(batch_size, self.in_channels, -1)
         features = []
         for layer in self.main:
-            z = layer(x)
+            if self.reflection_padding:
+                padding = layer.dilation[0]
+                padded = F.pad(x, (padding, padding), mode='reflect')
+            else:
+                padded = x
+            z = layer(padded)
             z = z[:, :, :x.shape[-1]]
             if self.residual and z.shape[1] == x.shape[1]:
                 x = self.activation(z + x)
@@ -450,3 +458,13 @@ class STFTDiscriminator(nn.Module):
         features, x = self.main(x, return_features=True)
         x = self.judge(x)
         return [features], [x]
+
+
+class Reshape(nn.Module):
+    def __init__(self, new_shape):
+        super().__init__()
+        self.new_shape = new_shape
+
+    def forward(self, x):
+        batch = x.shape[0]
+        return x.view(batch, *self.new_shape)

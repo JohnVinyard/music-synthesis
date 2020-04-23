@@ -19,6 +19,8 @@ What we'll try:
 N_MELS = 128
 samplerate = zounds.SR22050()
 
+FRACTAL_WINDOW_SIZE = 2
+
 class MelPhaseRecovery(BasePhaseRecovery):
     basis = mel(
         sr=int(samplerate),
@@ -128,7 +130,7 @@ def unpacked_channels(x, time_dim):
 
 
 
-def learn_clusters(stream, n_clusters=512, n_iterations=1000):
+def learn_clusters(stream, n_clusters=512, n_iterations=10000):
     kmeans_batch_size = n_clusters * 2
     kmeans = MiniBatchKMeans(
         n_clusters=n_clusters, batch_size=kmeans_batch_size)
@@ -136,23 +138,24 @@ def learn_clusters(stream, n_clusters=512, n_iterations=1000):
     for i, rep in enumerate(islice(stream, n_iterations)):
         data = rep.data # (batch, channels, time)
         data = packed_channels(data)
-        data = packed_fractal(data, 2)
-        # _, data = unit_norm(data)
-        kmeans.partial_fit(data)
+        data = packed_fractal(data, FRACTAL_WINDOW_SIZE)
+        kmeans.partial_fit(data[:, 1:])
         yield i, kmeans
 
 def do_recon(km, time_dim):
     rep = next(make_stream())
     data = rep.data
     data = packed_channels(data)
-    data = packed_fractal(data, 2)
+    data = packed_fractal(data, FRACTAL_WINDOW_SIZE)
+    norms = data[:, :1]
 
-    # norms, data = unit_norm(data)
-    indices = km.predict(data)
+    indices = km.predict(data[:, 1:])
 
     centroids = km.cluster_centers_[indices]
-    # centroids *= norms
-    centroids = unpacked_fractal_recon(centroids, 2)
+    centroids = np.concatenate([norms, centroids], axis=1)
+    centroids = unpacked_fractal_recon(centroids, FRACTAL_WINDOW_SIZE)
+
+
 
     centroids = unpacked_channels(centroids, time_dim)
     recon_rep = rep.__class__(centroids, samplerate)
@@ -164,7 +167,7 @@ def make_stream():
 
 if __name__ == '__main__':
     app = zounds.ZoundsApp(locals=locals(), globals=globals())
-    app.start_in_thread(9999)
+    app.start_in_thread(8888)
 
     rs = make_stream()
 

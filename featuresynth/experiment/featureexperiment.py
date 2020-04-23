@@ -14,11 +14,13 @@ from ..experiment import FilterBankMultiscaleExperiment
 from ..feature import spectrogram, audio
 from ..featurediscriminator import \
     SpectrogramFeatureDiscriminator, CollapseSpectrogramFeatureDiscriminator, \
-    TwoDimFeatureDiscriminator, ARDiscriminator
+    TwoDimFeatureDiscriminator, ARDiscriminator, \
+    FrameSpectrogramFeatureDiscriminator, SimpleDiscriminator
 from ..featuregenerator import \
     SpectrogramFeatureGenerator, OneDimensionalSpectrogramGenerator, \
     NearestNeighborOneDimensionalSpectrogramGenerator, ARGenerator, \
-    PredictiveGenerator
+    PredictiveGenerator, PredictiveFrameGenerator, ARPredictiveGenerator, \
+    SimpleGenerator
 from ..loss import least_squares_generator_loss, least_squares_disc_loss
 from ..train import GeneratorTrainer, DiscriminatorTrainer
 
@@ -393,15 +395,14 @@ class PredictiveFeatureExperiment(BaseFeatureExperiment):
 
 
         frames = 256
-        disc_channels = 256
+        channels = 32
 
         super().__init__(
             vocoder=vocoder,
-            feature_generator=PredictiveGenerator(),
+            feature_generator=SimpleGenerator(),
             generator_init=weights_init,
             generator_loss=gen_loss,
-            feature_disc=SpectrogramFeatureDiscriminator(
-                vocoder_exp.N_MELS, disc_channels),
+            feature_disc=SimpleDiscriminator(),
             disc_init=weights_init,
             disc_loss=disc_loss,
             feature_funcs={
